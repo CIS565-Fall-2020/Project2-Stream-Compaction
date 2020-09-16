@@ -2,6 +2,8 @@
 
 #include "common.h"
 
+constexpr int blocksize = 128;
+
 namespace StreamCompaction {
     namespace Naive {
         StreamCompaction::Common::PerformanceTimer& timer();
