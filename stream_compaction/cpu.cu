@@ -18,9 +18,12 @@ namespace StreamCompaction {
          * (Optional) For better understanding before starting moving to GPU, you can simulate your GPU scan in this function first.
          */
         void scan(int n, int *odata, const int *idata) {
-            timer().startCpuTimer();
-            // TODO
-            timer().endCpuTimer();
+            //timer().startCpuTimer();
+            odata[0] = 0;
+            for (int i = 1; i < n; i++) {
+                odata[i] = idata[i - 1] + odata[i - 1];
+            }
+            //timer().endCpuTimer();
         }
 
         /**
@@ -30,9 +33,15 @@ namespace StreamCompaction {
          */
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            int index = 0;
+            for (int i = 0; i < n; i++) {
+                if (idata[i] != 0) {
+                    odata[index] = idata[i];
+                    index++;
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+            return index;
         }
 
         /**
@@ -42,9 +51,25 @@ namespace StreamCompaction {
          */
         int compactWithScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            // create a new array mapping the input array to zero's and one's
+            int* zerosAndOnes = new int[n];
+            for (int i = 0; i < n; i++) {
+                idata[i] == 0 ? zerosAndOnes[i] = 0 : zerosAndOnes[i] = 1;
+            }
+            
+            // scan new array
+            int* scannedArray = new int[n];
+            scan(n, scannedArray, zerosAndOnes);
+
+            //scatter
+            for (int i = 0; i < n; i++) {
+                if (zerosAndOnes[i] == 1) {
+                    odata[scannedArray[i]] = idata[i];
+                }
+            }
+            
             timer().endCpuTimer();
-            return -1;
+            return scannedArray[n-1];
         }
     }
 }
