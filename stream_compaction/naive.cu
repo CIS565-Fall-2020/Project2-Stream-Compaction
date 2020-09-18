@@ -90,6 +90,8 @@ namespace StreamCompaction {
 			// free device arrays
 			cudaFree(A_data);
 			cudaFree(B_data);
+			cudaFree(g_odata);
+			cudaFree(g_idata);
         }
     }
 }

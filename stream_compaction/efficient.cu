@@ -64,9 +64,10 @@ namespace StreamCompaction {
 				offset *= 2;
 			}
 			// down-sweep
-			if (index == n - 1 && n > 0) {
-				g_odata[index] = 0;
+			if (index == 0 && n > 0) {
+				g_odata[n - 1] = 0;
 			}
+			offset /= 2;
 			for (int d = 1; d <= N / 2; d *= 2) {
 				__syncthreads();
 				if (index < d) {
@@ -106,6 +107,9 @@ namespace StreamCompaction {
 			// copy back ouput
 			cudaMemcpy(odata, g_odata, sizeof(int) * n, cudaMemcpyDeviceToHost);
 			checkCUDAErrorFn("cudaMemcpy odata failed!");
+
+			cudaFree(g_odata);
+			cudaFree(g_idata);
         }
 
         /**
