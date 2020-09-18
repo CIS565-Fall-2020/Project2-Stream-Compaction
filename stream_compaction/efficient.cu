@@ -12,21 +12,25 @@ namespace StreamCompaction {
             return timer;
         }
 
-        __global__ void kernEfficientUpSweep(int n, int offset, int* data) {
+        __global__ void kernEfficientUpSweep(int n, int offset,
+            int numNode, int* data) {
             int index = threadIdx.x + blockIdx.x * blockDim.x;
-            index = (index + 1) * offset * 2 - 1;
-            if (index >= n) {
+            if (index >= numNode) {
                 return;
             }
+            index = (index + 1) * offset * 2 - 1;
+            
             data[index] += data[index - offset];
         }
 
-        __global__ void kernEfficientDownSweep(int n, int offset, int* data) {
+        __global__ void kernEfficientDownSweep(int n, int offset,
+            int numNode, int* data) {
             int index = threadIdx.x + blockIdx.x * blockDim.x;
-            index = (index + 1) * 2 * offset - 1;
-            if (index >= n) {
+            if (index >= numNode) {
                 return;
             }
+            index = (index + 1) * 2 * offset - 1;
+
             int temp = data[index - offset];
             data[index - offset] = data[index];
             data[index] += temp;
@@ -62,10 +66,10 @@ namespace StreamCompaction {
             // Up-Sweep
             int offset = 1;
             for (int i = 0; i < d; i++) {
-                int nodeNumber = 1 << (d - i - 1);
-                dim3 blocks(nodeNumber / threadsPerBlock.x + 1);
+                int numNode = 1 << (d - i - 1);
+                dim3 blocks(numNode / threadsPerBlock.x + 1);
                 kernEfficientUpSweep << <blocks, threadsPerBlock >> >
-                    (full, offset, dev_data);
+                    (full, offset, numNode, dev_data);
                 offset <<= 1;
             }
 
@@ -73,10 +77,10 @@ namespace StreamCompaction {
             cudaMemset(dev_data + full - 1, 0, sizeof(int));
             for (int i = 0; i < d; i++) {
                 offset >>= 1;
-                int nodeNumber = 1 << i;
-                dim3 blocks(nodeNumber / threadsPerBlock.x + 1);
+                int numNode = 1 << i;
+                dim3 blocks(numNode / threadsPerBlock.x + 1);
                 kernEfficientDownSweep << <blocks, threadsPerBlock >> >
-                    (full, offset, dev_data);
+                    (full, offset, numNode, dev_data);
             }
             
 
