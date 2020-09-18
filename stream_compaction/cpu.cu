@@ -20,6 +20,10 @@ namespace StreamCompaction {
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            odata[0] = 0;
+            for (int i = 1; i < n; i++) {
+                odata[i] = odata[i - 1] + idata[i - 1];
+            }
             timer().endCpuTimer();
         }
 
@@ -31,8 +35,15 @@ namespace StreamCompaction {
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            int counter = 0;
+            for (int i = 0; i < n; i++) {
+                if (idata[i] != 0) {
+                    odata[counter] = idata[i];
+                    counter++;
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+            return counter;
         }
 
         /**
@@ -43,8 +54,32 @@ namespace StreamCompaction {
         int compactWithScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            // Construct criteria vector
+            int* criteriaVec = new int[n];
+            for (int i = 0; i < n; i++) {
+                criteriaVec[i] = idata[i] != 0 ? 1 : 0;
+            }
+
+            // Construct scan vector from criteria vector
+            int* scanVec = new int[n];
+            scanVec[0] = 0;
+            for (int i = 1; i < n; i++) {
+                scanVec[i] = scanVec[i - 1] + criteriaVec[i - 1];
+            }
+
+            // Scatter
+            int counter = 0;
+            for (int i = 0; i < n; i++) {
+                if (criteriaVec[i] == 1) {
+                    odata[scanVec[i]] = idata[i];
+                    counter++;
+                }
+            }
+
+            delete[] criteriaVec;
+            delete[] scanVec;
             timer().endCpuTimer();
-            return -1;
+            return counter;
         }
     }
 }
