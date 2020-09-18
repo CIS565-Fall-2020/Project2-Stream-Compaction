@@ -2,6 +2,8 @@
 
 #include "common.h"
 
+constexpr int efficient_blocksize = 128;
+
 namespace StreamCompaction {
     namespace Efficient {
         StreamCompaction::Common::PerformanceTimer& timer();

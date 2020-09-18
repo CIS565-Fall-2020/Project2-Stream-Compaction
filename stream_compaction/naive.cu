@@ -7,6 +7,7 @@
 
 //#define checkCUDAErrorWithLine(msg) checkCUDAError(msg, __LINE__)
 
+
 namespace StreamCompaction {
     namespace Naive {
         using StreamCompaction::Common::PerformanceTimer;
@@ -29,6 +30,9 @@ namespace StreamCompaction {
 
             if (k >= d_phase) {
                 dev_buf_1[k] = dev_buf_0[k - d_phase] + dev_buf_0[k];
+            }
+            else {
+                dev_buf_1[k] = dev_buf_0[k];
             }
             return;
         }
@@ -58,9 +62,12 @@ namespace StreamCompaction {
             int it_ceil = ilog2ceil(n);
             dim3 blocksPerGrid = (n + blocksize - 1) / blocksize;
 
+            int offset;
             for (int d = 1; d <= it_ceil; d++) {
-                StreamCompaction::Naive::kernScanStep<<<blocksPerGrid, blocksize>>>(n, (int)std::pow(2, d-1), device_buf_0, device_buf_1);
-                cudaMemcpy(device_buf_0, device_buf_1, n * sizeof(int), cudaMemcpyHostToDevice);
+                offset = (int)std::pow(2, d - 1);
+                StreamCompaction::Naive::kernScanStep<<<blocksPerGrid, blocksize>>>(n, offset, device_buf_0, device_buf_1);
+                //cudaMemcpy(device_buf_0, device_buf_1, n* sizeof(int), cudaMemcpyDeviceToDevice);
+                std::swap(device_buf_0, device_buf_1);
             }
             
 
@@ -78,23 +85,24 @@ namespace StreamCompaction {
     }
 }
 
-//__global__ void scan(float* g_odata, float* g_idata, int n) {
-//    extern __shared__ float temp[]; // allocated on invocation    
-//    int thid = threadIdx.x;
-//    int pout = 0, pin = 1;   // Load input into shared memory.    
-//                             // This is exclusive scan, so shift right by one    
-//                             // and set first element to 0   
-//    temp[pout * n + thid] = (thid > 0) ? g_idata[thid - 1] : 0;
-//    __syncthreads();
-//    for (int offset = 1; offset < n; offset *= 2)
-//    {
-//        pout = 1 - pout;
-//        // swap double buffer indices     
-//        pin = 1 - pout;
-//        if (thid >= offset)
-//            temp[pout * n + thid] += temp[pin * n + thid - offset];
-//        else
-//            temp[pout * n + thid] = temp[pin * n + thid];
-//        __syncthreads();
-//    }
-//    g_odata[thid] = temp[pout * n + thid]; // write output } 
+__global__ void scan(float* g_odata, float* g_idata, int n) {
+    extern __shared__ float temp[]; // allocated on invocation    
+    int thid = threadIdx.x;
+    int pout = 0, pin = 1;   // Load input into shared memory.    
+                             // This is exclusive scan, so shift right by one    
+                             // and set first element to 0   
+    temp[pout * n + thid] = (thid > 0) ? g_idata[thid - 1] : 0;
+    __syncthreads();
+    for (int offset = 1; offset < n; offset *= 2)
+    {
+        pout = 1 - pout;
+        // swap double buffer indices     
+        pin = 1 - pout;
+        if (thid >= offset)
+            temp[pout * n + thid] += temp[pin * n + thid - offset];
+        else
+            temp[pout * n + thid] = temp[pin * n + thid];
+        __syncthreads();
+    }
+    g_odata[thid] = temp[pout * n + thid]; // write output 
+} 
