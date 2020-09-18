@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
     printf("****************\n");
 
     genArray(SIZE - 1, a, 50);  // Leave a 0 at the end to test that edge case
+    //onesArray(SIZE, a);
     a[SIZE - 1] = 0;
     printArray(SIZE, a, true);
 
