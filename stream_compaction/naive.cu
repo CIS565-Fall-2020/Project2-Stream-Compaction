@@ -5,8 +5,10 @@
 #include <cstdio>
 
 #define blockSize 128
-
 #define checkCUDAErrorWithLine(msg) checkCUDAError(msg, __LINE__)
+
+int *dev_idata;
+int* dev_odata;
 
 namespace StreamCompaction {
     namespace Naive {
@@ -17,40 +19,64 @@ namespace StreamCompaction {
             return timer;
         }
 
-        __global__ void kernNaiveScan(int n, int *odata, int *idata, int log2n) {
+        __global__ void kernStepNaiveScan(int n, int *odata, int *idata, int pow2) {
             int index = blockIdx.x * blockDim.x + threadIdx.x;
             if (index >= n) {
                 return;
             }
 
-            int pow2 = 1;
-            /*for (int d = 1; d < log2n; d++) {
-                if (index >= pow2) {
-                    odata[index] = idata[index - pow2] + idata[index];
-                }
-                else {
-                    odata[index] = idata[index];
-                }
-                __syncthreads();
+            if (index >= pow2) {
+                odata[index] = idata[index - pow2] + idata[index];
+            }
+            else {
+                odata[index] = idata[index];
+            }
+        }
 
-                pow2 *= 2;
-            }*/
-            odata[index] = idata[index];
+        __global__ void kernMakeExclusive(int n, int *odata, int *idata) {
+            int index = blockIdx.x * blockDim.x + threadIdx.x;
+            if (index >= n) {
+                return;
+            }
+
+            if (index == 0) {
+                odata[index] = 0;
+            }
+            else {
+                odata[index] = idata[index - 1];
+            }
         }
 
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
-            timer().startGpuTimer();
-            int numBlocks = ceil(n / blockSize);
+            int numBlocks = ceil((float)n / (float)blockSize);
             const int size = n;
-            int* idataCopy = new int[size];
-            int i = idata[0];
-            cudaMemcpy(idataCopy, idata, sizeof(int) * n, cudaMemcpyHostToHost);
-            int j = idataCopy[0];
-            kernNaiveScan <<<numBlocks, blockSize>>> (n, odata, idataCopy, ilog2ceil(n));
+            cudaMalloc((void**)&dev_idata, sizeof(int) * n);
+            cudaMalloc((void**)&dev_odata, sizeof(int) * n);
+            cudaMemcpy(dev_idata, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+
+            timer().startGpuTimer();
+            int log2n = ilog2ceil(n);
+            for (int d = 1; d <= log2n; d++) {
+                kernStepNaiveScan << <numBlocks, blockSize >> > (n, dev_odata, dev_idata, (int) powf(2, d - 1));
+                if (d < log2n) {
+                    int* tempPtr = dev_odata;
+                    dev_odata = dev_idata;
+                    dev_idata = tempPtr;
+                }
+            }
+
+            // The correct data will be in odata, now have to make exclusive and store
+            // in idata, contrary to the original name's intention
+            kernMakeExclusive << <numBlocks, blockSize >> > (n, dev_idata, dev_odata);
             timer().endGpuTimer();
+
+            cudaMemcpy(odata, dev_idata, sizeof(int) * n, cudaMemcpyDeviceToHost);
+
+            cudaFree(dev_idata);
+            cudaFree(dev_odata);
         }
     }
 }
