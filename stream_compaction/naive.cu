@@ -59,13 +59,15 @@ namespace StreamCompaction {
                 int offset = 1;
                 dim3 blocks(n / threadsPerBlock.x + 1);
                 for (int i = 1; i <= d; i++) {
-                    kernNaiveScan << <blocks, threadsPerBlock >> > (n, offset, dev_data2, dev_data1);
+                    kernNaiveScan << <blocks, threadsPerBlock >> >
+                        (n, offset, dev_data2, dev_data1);
                     std::swap(dev_data1, dev_data2);
                     offset <<= 1;
                 }
 
                 // Right shift to get the exclusive prefix sum
-                kernRightShift << <blocks, threadsPerBlock >> > (n, dev_data2, dev_data1);
+                kernRightShift << <blocks, threadsPerBlock >> >
+                    (n, dev_data2, dev_data1);
             }
 
             timer().endGpuTimer();
