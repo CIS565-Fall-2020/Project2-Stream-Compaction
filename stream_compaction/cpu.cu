@@ -32,6 +32,22 @@ namespace StreamCompaction {
         }
 
         /**
+        * CPU scan (prefix sum) as a helper method.
+        * For performance analysis, this is supposed to be a simple for loop.
+        */
+        void scanImplementation(int n, int* odata, const int* idata) {
+            for (int i = 0; i < n; ++i) {
+                int prefix_idx = i - 1;
+                if (prefix_idx < 0) {
+                    odata[i] = 0;
+                }
+                else {
+                    odata[i] = odata[i - 1] + idata[i - 1];
+                }
+            }
+        }
+
+        /**
          * CPU stream compaction without using the scan function.
          *
          * @returns the number of elements remaining after compaction.
@@ -70,7 +86,7 @@ namespace StreamCompaction {
             }
             // run scan
             int* scanned = new int[n] {0};
-            StreamCompaction::CPU::scan(n, scanned, temp);
+            StreamCompaction::CPU::scanImplementation(n, scanned, temp);
             // scatter
             int count = 0;
             for (int i = 0; i < n; ++i) {
