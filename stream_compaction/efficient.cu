@@ -15,28 +15,29 @@ namespace StreamCompaction {
             static PerformanceTimer timer;
             return timer;
         }
-        __global__ void kernUpdateArray(const int& idx, const int& val, int* dev_a) {
-            dev_a[idx] = val;
+        __global__ void kernUpdateArray(int idx, int val, int* d_data) {
+            d_data[idx] = val;
         }
 
         __global__ void kernUpSweepStep(
             int N,
             int d_2,
-            int* dev_idata
+            int* d_data
         ){
             int k = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (k >= N) {
                 return;
             }
             if (k % (2 * d_2) == 0) {
-                dev_idata[k + 2 * d_2 - 1] += dev_idata[k + d_2 - 1];
+                d_data[k + 2 * d_2 - 1] += d_data[k + d_2 - 1];
             }
+            __syncthreads();
         }
 
         __global__ void kernDownSweepStep(
             int N,
             int d_2,
-            int* dev_idata
+            int* d_data
         ) {
             int k = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (k >= N) {
@@ -44,10 +45,12 @@ namespace StreamCompaction {
             }
 
             if (k % ( d_2 * 2 )== 0) {
-                int tmp = dev_idata[k + d_2 -1];
-                dev_idata[k + d_2 - 1] = dev_idata[k + 2 * d_2 - 1];
-                dev_idata[k + 2 * d_2 - 1] = tmp + dev_idata[k + 2 * d_2 - 1];
+                int tmp = d_data[k + d_2 -1];
+                d_data[k + d_2 - 1] = d_data[k + 2 * d_2 - 1];
+                d_data[k + 2 * d_2 - 1] = tmp + d_data[k + 2 * d_2 - 1];
             }
+            __syncthreads();
+
             
         }
         /**
@@ -86,7 +89,7 @@ namespace StreamCompaction {
 
             
             timer().endGpuTimer();
-            cudaMemcpy(odata + 1, dev_idata, (n - 1) * sizeof(int), cudaMemcpyDeviceToHost);
+            cudaMemcpy(odata, dev_idata,n * sizeof(int), cudaMemcpyDeviceToHost);
             cudaFree(dev_idata);
         }
 
@@ -115,7 +118,7 @@ namespace StreamCompaction {
 
         for (int d = n >> 1; d > 0; d >>= 1)                    // build sum in place up the tree 
         { 
-            __syncthreads();    
+            __syncthreads(); 
             if (thid < d)    
             { 
                 int ai = offset * (2 * thid + 1) - 1; 
