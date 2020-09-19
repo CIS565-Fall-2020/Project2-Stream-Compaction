@@ -8,7 +8,9 @@ namespace StreamCompaction {
 
         __global__ void init_array(int* dev_array, const int* dev_temp_array, const int n, const int fit_size);
 
-        __global__ void up_sweep(int* dev_array, const int fit_size);
+        __global__ void up_sweep(int* dev_array, const int fit_size, const int d);
+
+        __global__ void down_sweep(int* dev_array, const int fit_size, const int d);
 
         void scan(int n, int *odata, const int *idata);
 

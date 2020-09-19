@@ -34,28 +34,26 @@ namespace StreamCompaction {
 
         __global__ void up_sweep(int* dev_array, const int fit_size, const int d) {
             int index = threadIdx.x + (blockIdx.x * blockDim.x);
-            if (index >= fit_size) {
+            int remap_index = index * pow(2.0, d + 1);
+            if (remap_index >= fit_size) {
                 return;
             }
             int two_pow_d_add_1 = pow(2.0, d + 1);
-            if (index % two_pow_d_add_1 == 0) {
-                int two_pow_d = pow(2.0, d);
-                dev_array[index + two_pow_d_add_1 - 1] += dev_array[index + two_pow_d - 1];
-            }            
+            int two_pow_d = pow(2.0, d);
+            dev_array[remap_index + two_pow_d_add_1 - 1] += dev_array[remap_index + two_pow_d - 1];
         }
 
         __global__ void down_sweep(int* dev_array, const int fit_size, const int d) {
             int index = threadIdx.x + (blockIdx.x * blockDim.x);
-            if (index >= fit_size) {
+            int remap_index = index * pow(2.0, d + 1);
+            if (remap_index >= fit_size) {
                 return;
             }
             int two_pow_d_add_1 = pow(2.0, d + 1);
-            if (index % two_pow_d_add_1 == 0) {
-                int two_pow_d = pow(2.0, d);
-                int t = dev_array[index + two_pow_d - 1];
-                dev_array[index + two_pow_d - 1] = dev_array[index + two_pow_d_add_1 - 1];
-                dev_array[index + two_pow_d_add_1 - 1] += t;
-            }
+            int two_pow_d = pow(2.0, d);
+            int t = dev_array[remap_index + two_pow_d - 1];
+            dev_array[remap_index + two_pow_d - 1] = dev_array[remap_index + two_pow_d_add_1 - 1];
+            dev_array[remap_index + two_pow_d_add_1 - 1] += t;
         }
 
         /**
@@ -79,7 +77,7 @@ namespace StreamCompaction {
             cudaMemcpy(dev_temp_data_array, idata, oriSizeInBytes, cudaMemcpyHostToDevice);
             checkCUDAError("cudaMemcpy dev_data_array failed!");
 
-            init_array <<<fullBlocksPerGrid, fit_size>>> (dev_data_array, dev_temp_data_array, n, fit_size);
+            init_array <<<fullBlocksPerGrid, blockSize>>> (dev_data_array, dev_temp_data_array, n, fit_size);
 
             timer().startGpuTimer();
             
@@ -87,15 +85,17 @@ namespace StreamCompaction {
             int d_max = ilog2ceil(n) - 1;
             // Up-Sweep:
             for (int d = 0; d <= d_max; ++d) {
-                up_sweep <<<fullBlocksPerGrid, fit_size>>> (dev_data_array, fit_size, d);
+                int threads_num_needed = fit_size * pow(0.5, d + 1);
+                dim3 up_sweep_blocks_per_grid((threads_num_needed + blockSize - 1) / blockSize);
+                up_sweep <<<up_sweep_blocks_per_grid, blockSize>>> (dev_data_array, fit_size, d);
             }
-            // x[n - 1] = 0
-            int* a = new int[1]();
-            a[0] = 0;
-            cudaMemcpy(dev_data_array + fit_size - 1, a, sizeof(int), cudaMemcpyHostToDevice);
+            
+            cudaMemset(dev_data_array + fit_size - 1, 0, sizeof(int));
             // Down-Sweep:
             for (int d = d_max; d >= 0; --d) {
-                down_sweep <<<fullBlocksPerGrid, fit_size>>> (dev_data_array, fit_size, d);
+                int threads_num_needed = fit_size * pow(0.5, d + 1);
+                dim3 down_sweep_blocks_per_grid((threads_num_needed + blockSize - 1) / blockSize);
+                down_sweep <<<down_sweep_blocks_per_grid, blockSize>>> (dev_data_array, fit_size, d);
             }
             
             // Copy to output data:
@@ -106,7 +106,7 @@ namespace StreamCompaction {
             checkCUDAError("cudaFree(dev_data_array) failed!");
             cudaFree(dev_temp_data_array);
             checkCUDAError("cudaFree(dev_temp_data_array) failed!");
-            free(a);
+            // free(a);
         }
 
         /**
@@ -151,20 +151,25 @@ namespace StreamCompaction {
 
             // Scan:
             // Add zeros at the end of array.
-            init_array <<<scanFullBlocksPerGrid, fit_size>>> (dev_data_array, dev_zero_one_temp_array, n, fit_size);
+            init_array <<<scanFullBlocksPerGrid, blockSize>>> (dev_data_array, dev_zero_one_temp_array, n, fit_size);
 
             int d_max = ilog2ceil(n) - 1;
             // Up-Sweep:
             for (int d = 0; d <= d_max; ++d) {
-                up_sweep <<<scanFullBlocksPerGrid, fit_size>>> (dev_data_array, fit_size, d);
+                int threads_num_needed = fit_size * pow(0.5, d + 1);
+                dim3 up_sweep_blocks_per_grid((threads_num_needed + blockSize - 1) / blockSize);
+                up_sweep <<<up_sweep_blocks_per_grid, blockSize>>> (dev_data_array, fit_size, d);
             }
             // x[n - 1] = 0
-            int* a = new int[1]();
-            a[0] = 0;
-            cudaMemcpy(dev_data_array + fit_size - 1, a, sizeof(int), cudaMemcpyHostToDevice);
+            // int* a = new int[1]();
+            // a[0] = 0;
+            // cudaMemcpy(dev_data_array + fit_size - 1, a, sizeof(int), cudaMemcpyHostToDevice);
+            cudaMemset(dev_data_array + fit_size - 1, 0, sizeof(int));
             // Down-Sweep:
             for (int d = d_max; d >= 0; --d) {
-                down_sweep <<<scanFullBlocksPerGrid, fit_size>>> (dev_data_array, fit_size, d);
+                int threads_num_needed = fit_size * pow(0.5, d + 1);
+                dim3 down_sweep_blocks_per_grid((threads_num_needed + blockSize - 1) / blockSize);
+                down_sweep <<<down_sweep_blocks_per_grid, blockSize>>> (dev_data_array, fit_size, d);
             }
 
             // Get the total number of the final elements:
