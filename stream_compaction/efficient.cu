@@ -1,7 +1,11 @@
+#include "efficient.h"
+
+#include <cassert>
+
 #include <cuda.h>
 #include <cuda_runtime.h>
+
 #include "common.h"
-#include "efficient.h"
 
 namespace StreamCompaction {
     namespace Efficient {
@@ -10,6 +14,14 @@ namespace StreamCompaction {
             static PerformanceTimer timer;
             return timer;
         }
+
+        constexpr int log2BlockSize = 9; // 512
+        constexpr int blockSize = 1 << log2BlockSize;
+
+        constexpr int numBanks = 32;
+        /*__host__ __device__ int _transformIndex(int i) {
+
+        }*/
 
         __global__ void kernScanPerBlock(int *data, int *lastData) {
             extern __shared__ int buffer[];
@@ -57,23 +69,44 @@ namespace StreamCompaction {
             }
         }
 
-        void _computeSizes(int n, int log2BlockSize, int *blockSize, int *numBlocks, int *bufferSize) {
-            *blockSize = 1 << log2BlockSize;
+        __global__ void kernAddConstantToBlock(int *data, const int *amount) {
+            data[blockIdx.x * blockDim.x + threadIdx.x] += amount[blockIdx.x];
+        }
+
+        void _computeSizes(int n, int log2BlockSize, int *numBlocks, int *bufferSize) {
             *numBlocks = n >> log2BlockSize;
-            if ((n & (*blockSize - 1)) != 0) {
+            if ((n & ((1 << log2BlockSize) - 1)) != 0) {
                 ++*numBlocks;
             }
             *bufferSize = *numBlocks << log2BlockSize;
+        }
+
+        void dev_scan(int n, int *dev_data) {
+            assert((n & (blockSize - 1)) == 0);
+
+            if (n > blockSize) {
+                int numBlocks = n >> log2BlockSize, numIndirectBlocks, indirectSize;
+                _computeSizes(numBlocks, log2BlockSize, &numIndirectBlocks, &indirectSize);
+
+                int *buffer;
+                cudaMalloc(&buffer, sizeof(int) * indirectSize);
+
+                kernScanPerBlock<<<numBlocks, blockSize, blockSize * sizeof(int)>>>(dev_data, buffer);
+                dev_scan(indirectSize, buffer);
+                kernAddConstantToBlock<<<numBlocks, blockSize>>>(dev_data, buffer);
+
+                cudaFree(buffer);
+            } else { // just scan the block
+                kernScanPerBlock<<<1, blockSize, blockSize * sizeof(int)>>>(dev_data, nullptr);
+            }
         }
 
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
-            int log2BlockSize = 9; // block_size = 512
-
-            int blockSize, numBlocks, bufferSize;
-            _computeSizes(n, log2BlockSize, &blockSize, &numBlocks, &bufferSize);
+            int numBlocks, bufferSize;
+            _computeSizes(n, log2BlockSize, &numBlocks, &bufferSize);
 
             int *buffer;
             cudaMalloc(&buffer, sizeof(int) * bufferSize);
@@ -83,33 +116,14 @@ namespace StreamCompaction {
             cudaMemset(buffer + n, 0, sizeof(int) * (bufferSize - n));
 
             timer().startGpuTimer();
-            kernScanPerBlock<<<numBlocks, blockSize, blockSize * sizeof(int)>>>(buffer, nullptr);
+            dev_scan(bufferSize, buffer);
             timer().endGpuTimer();
 
             odata[0] = 0;
             cudaMemcpy(odata, buffer, sizeof(int) * n, cudaMemcpyDeviceToHost);
 
             cudaFree(buffer);
-        }
-
-        __global__ void kernConvertToBinary(int n, int *odata, const int *idata) {
-            int iSelf = blockIdx.x * blockDim.x + threadIdx.x;
-            if (iSelf >= n) {
-                return;
-            }
-            odata[iSelf] = idata[iSelf] != 0 ? 1 : 0;
-        }
-
-        __global__ void kernCompact(int n, int *out, const int *data, const int *accum) {
-            int iSelf = blockIdx.x * blockDim.x + threadIdx.x;
-            if (iSelf >= n) {
-                return;
-            }
-
-            int val = data[iSelf];
-            if (val != 0) {
-                out[accum[iSelf]] = val;
-            }
+            checkCUDAError("efficient scan");
         }
 
         /**
@@ -122,10 +136,10 @@ namespace StreamCompaction {
          * @returns      The number of elements remaining after compaction.
          */
         int compact(int n, int *odata, const int *idata) {
-            int log2BlockSize = 9; // block_size = 512
+            constexpr int log2BlockSize = 9; // block_size = 512
 
-            int blockSize, numBlocks, bufferSize;
-            _computeSizes(n, log2BlockSize, &blockSize, &numBlocks, &bufferSize);
+            int numBlocks, bufferSize;
+            _computeSizes(n, log2BlockSize, &numBlocks, &bufferSize);
 
             int *data, *accum, *out;
             cudaMalloc(&data, sizeof(int) * bufferSize);
@@ -136,14 +150,15 @@ namespace StreamCompaction {
             cudaMemset(data + n, 0, sizeof(int) * (bufferSize - n));
 
             timer().startGpuTimer();
-            kernConvertToBinary<<<numBlocks, blockSize>>>(n, accum, data);
-            kernScanPerBlock<<<numBlocks, blockSize, blockSize * sizeof(int)>>>(accum, nullptr);
-            kernCompact<<<numBlocks, blockSize>>>(n, out, data, accum);
+            Common::kernMapToBoolean<<<numBlocks, blockSize>>>(n, accum, data);
+            dev_scan(bufferSize, accum);
+            Common::kernScatter<<<numBlocks, blockSize>>>(n, out, data, data, accum);
             timer().endGpuTimer();
 
             int res;
             cudaMemcpy(odata, out, sizeof(int) * n, cudaMemcpyDeviceToHost);
             cudaMemcpy(&res, accum + n - 1, sizeof(int), cudaMemcpyDeviceToHost);
+            checkCUDAError("efficient compaction");
             if (idata[n - 1] != 0) {
                 ++res;
             }
