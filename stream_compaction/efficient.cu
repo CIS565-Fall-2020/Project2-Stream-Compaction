@@ -31,7 +31,6 @@ namespace StreamCompaction {
             if (k % (2 * d_2) == 0) {
                 d_data[k + 2 * d_2 - 1] += d_data[k + d_2 - 1];
             }
-            __syncthreads();
         }
 
         __global__ void kernDownSweepStep(
@@ -49,14 +48,11 @@ namespace StreamCompaction {
                 d_data[k + d_2 - 1] = d_data[k + 2 * d_2 - 1];
                 d_data[k + 2 * d_2 - 1] = tmp + d_data[k + 2 * d_2 - 1];
             }
-            __syncthreads();
-
-            
         }
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
-        void scan(int n, int *odata, const int *idata) {
+        void scan(int n, int *odata, const int *idata, bool ifTimer = true) {
             if (n == 0) {
                 return;
             }
@@ -72,7 +68,11 @@ namespace StreamCompaction {
             cudaMalloc((void**)&dev_idata, n_2 * sizeof(int));
             /*cudaMalloc((void**)&dev_odata, n_2 * sizeof(int));*/
             cudaMemcpy(dev_idata, idata, n * sizeof(int), cudaMemcpyHostToDevice);
-            timer().startGpuTimer();
+
+            if (ifTimer) {
+                timer().startGpuTimer();
+            }
+            
             // TODO
             for (int d = 0; d <= log_n - 1; d ++) {
                 kernUpSweepStep<<<blocksPerGrid, efficient_blocksize >>>(n_2, 1 << d, dev_idata);
@@ -87,8 +87,10 @@ namespace StreamCompaction {
                 kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
             }
 
+            if (ifTimer) {
+                timer().endGpuTimer();
+            }
             
-            timer().endGpuTimer();
             cudaMemcpy(odata, dev_idata,n * sizeof(int), cudaMemcpyDeviceToHost);
             cudaFree(dev_idata);
         }
@@ -102,11 +104,59 @@ namespace StreamCompaction {
          * @param idata  The array of elements to compact.
          * @returns      The number of elements remaining after compaction.
          */
-        int compact(int n, int *odata, const int *idata) {
+        int compact(int N, int *odata, const int *idata) {
+            if (N == 0) {
+                return 0;
+            }
+            assert(odata != nullptr);
+            assert(idata != nullptr);
+            
+            int* dev_idata;
+            int* dev_odata;
+            int* dev_bools;
+            int* dev_indices;
+
+            cudaMalloc((void**)&dev_idata, N * sizeof(int));
+            cudaMalloc((void**)&dev_odata, N * sizeof(int));
+            cudaMalloc((void**)&dev_bools, N * sizeof(int));
+            cudaMalloc((void**)&dev_indices, N * sizeof(int));
+
+            cudaMemcpy(dev_idata, idata, N * sizeof(int), cudaMemcpyHostToDevice);
+
             timer().startGpuTimer();
             // TODO
+            dim3 blocksPerGrid = (N + efficient_blocksize - 1) / efficient_blocksize;
+            Common::kernMapToBoolean << <blocksPerGrid, efficient_blocksize >> > (N, dev_bools, dev_idata);
+            
+            scan(N, dev_indices, dev_bools, false);
+
+            Common::kernScatter << <blocksPerGrid, efficient_blocksize >> > (
+                N, 
+                dev_odata, 
+                dev_idata,
+                dev_bools,
+                dev_indices
+            );
+
+
             timer().endGpuTimer();
-            return -1;
+
+            cudaMemcpy(odata, dev_odata, N * sizeof(int), cudaMemcpyDeviceToHost);
+            int* hst_bools = new int[N];
+            cudaMemcpy(hst_bools, dev_bools, N * sizeof(int), cudaMemcpyDeviceToHost);
+            int out = 0;
+            for (int i = 0; i < N; i++) {
+                if (hst_bools[i] == 1) {
+                    out++;
+                }
+            }
+
+            cudaFree(dev_idata);
+            cudaFree(dev_odata);
+            cudaFree(dev_bools);
+            cudaFree(dev_indices);
+
+            return out;
         }
     }
 
