@@ -13,9 +13,9 @@ namespace StreamCompaction {
         }
         __global__ void addPrev(int n, int *idata, int *odata, int d) {
           int idx = threadIdx.x + (blockIdx.x * blockDim.x);
-          int base = 2 << (d - 1);
-          if (base + idx >= n) return;
-          odata[base + idx] = idata[base + idx] + idata[idx];
+          if (idx >= n) return;
+          int base = 1 << (d - 1);
+          odata[idx] = idx >= base ? idata[idx - base] + idata[idx] : idata[idx];
         }
 
         /**
@@ -24,23 +24,30 @@ namespace StreamCompaction {
         void scan(int n, int *odata, const int *idata) {
             int *dev_idata, *dev_odata;
             cudaMalloc((void **) &dev_idata, n * sizeof(int));
+            checkCUDAError("cudaMalloc dev_idata failed");
             cudaMalloc((void **) &dev_odata, n * sizeof(int));
+            checkCUDAError("cudaMalloc dev_odata failed");
             cudaMemcpy(dev_idata, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
-            cudaMemcpy(dev_odata, odata, sizeof(int) * n, cudaMemcpyHostToDevice);
+            checkCUDAError("cudaMemcpy dev_idata failed");
 
             timer().startGpuTimer();
             int iterations = ilog2ceil(n);
             
+            dim3 blocks((n + blockSize - 1) / blockSize);
             for (int d = 1; d <= iterations; d++) {
-              int base = 2 << (d - 1);
-              int numThreads = n - base;
-              dim3 blocks((numThreads + blockSize - 1) / blockSize);
-              addPrev<<<blocks, blockSize>>>(n, dev_idata, dev_odata, d);
-              std::swap(dev_idata, dev_odata);
+                if (d % 2 == 1) {
+                    addPrev << <blocks, blockSize >> > (n, dev_idata, dev_odata, d);
+                }
+                else {
+                    addPrev << <blocks, blockSize >> > (n, dev_odata, dev_idata, d);
+                }
+              checkCUDAError("addPrev failed");
             }
 
             timer().endGpuTimer();
-            cudaMemcpy(odata, (iterations % 2 == 0) ? dev_odata : dev_idata, sizeof(int) * n, cudaMemcpyDeviceToHost);
+            odata[0] = 0;
+            cudaMemcpy(odata + 1, (iterations % 2 == 1) ? dev_odata : dev_idata, sizeof(int) * (n - 1), cudaMemcpyDeviceToHost);
+            checkCUDAError("cudaMemcpy odata failed");
             cudaFree(dev_idata);
             cudaFree(dev_odata);
         }

@@ -21,7 +21,7 @@ namespace StreamCompaction {
             timer().startCpuTimer();
             odata[0] = 0;
             for (int i = 1; i < n; i++) {
-              odata[i] = odata[i] + idata[n - 1];
+              odata[i] = odata[i - 1] + idata[i - 1];
             }
             timer().endCpuTimer();
         }
@@ -55,7 +55,10 @@ namespace StreamCompaction {
             for (int i = 0; i < n; i++) {
               temp[i] = idata[i] == 0 ? 0 : 1;
             }
-            scan(n, tempSum, temp);
+            tempSum[0] = 0;
+            for (int i = 1; i < n; i++) {
+                tempSum[i] = tempSum[i - 1] + temp[i - 1];
+            }
             int cnt = 0;
             for (int i = 0; i < n; i++) {
               if (temp[i] == 1) {
