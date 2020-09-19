@@ -194,7 +194,10 @@ namespace StreamCompaction {
 
             timer().startGpuTimer();
             // TODO
-			kernelEfficientCompact<<<1, n>>>(g_odata, g_idata, g_sdata, g_bdata, n, N);
+			//kernelEfficientCompact<<<1, n>>>(g_odata, g_idata, g_sdata, g_bdata, n, N);
+			Common::kernMapToBoolean<<<1, n>>>(n, g_bdata, g_idata);
+			kernelEfficientScan<<<1, n>>>(g_sdata, g_bdata, n, N);
+			Common::kernScatter<<<1, n>>>(n, g_odata, g_idata, g_bdata, g_sdata);
 
             timer().endGpuTimer();
 
