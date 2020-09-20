@@ -80,21 +80,21 @@ Extra Credit:
 
 A more detailed performance comparison of exclusive scan with respect to the array size is shown below.
 
-![](comp1.JPG)
+![](.images/comp1.JPG)
 
-![](comp2.JPG)
+![](.images/comp2.JPG)
 
 The thrust implementation has the best scalability and runs about 10 times faster than my work-efficient scan. But its execution time still follows a linear increase with respect to the array size. My hypothesis about its efficiency is that it's using shared memory.
 
 In the timeline below, we can easily spot the bottleneck of my implementation. As I precluded the time measurement of device-to-host and host-to-device memory copy, the majority execution time comes from the calling of up-sweep kernel function and down-sweep kernel function. The up-sweep and down-sweep in total take 5 times longer than scatter and 10 times longer than map-to-boolean.
 
-![](t.JPG)
+![](.images/t.JPG)
 
-![](t2.JPG)
+![](.images/t2.JPG)
 
 The thrust scan seems to have two stage as well, as you can see below. But there is an noticable gap between two kernel functions. My guess is that they are packing memory into shared memories so the access can be much faster.
 
-![](thrust.JPG)
+![](.images/thrust.JPG)
 
 In each step of up-sweep and down-sweep, I only used those threads that are necessary to the algorithm. Since in each step we are only accessing and modifying a subset of the array elements, so the number of threads we need is proportional to the size of this subset. This trick eliminates a large number of lazy threads and thus makes the program run faster.
 
