@@ -18,25 +18,7 @@ namespace StreamCompaction {
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
-        __global__ void kernNonPaddedToPadded(int nPadded, int n, int* dev_vec_padded, int* dev_vec_nonPadded) {
-            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-            if (index < nPadded) {
-                if (index < n) {
-                    dev_vec_padded[index] = dev_vec_nonPadded[index];
-                } else {
-                    dev_vec_padded[index] = 0;
-                }
-
-            }
-        }
-
-        __global__ void kernPaddedToNonPadded(int n, int* dev_vec_padded, int* dev_vec_nonPadded) {
-            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-            //
-            if (index < n) {
-                dev_vec_nonPadded[index] = dev_vec_padded[index];
-            }
-        }
+        
 
         __global__ void kernReduce(int nPadded, int d, int* dev_vec_padded) {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -44,13 +26,6 @@ namespace StreamCompaction {
                 if (index % (1 << (d + 1)) == 0) { // (int)fmodf(index, 1 << (d + 1))
                     dev_vec_padded[index + (1 << (d + 1)) - 1] += dev_vec_padded[index + (1 << d) - 1];
                 }
-            }
-        }
-
-        __global__ void kernSetRootToZero(int nPadded, int* dev_vec_padded) {
-            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-            if (index == nPadded - 1) {
-                dev_vec_padded[index] = 0;
             }
         }
 
@@ -73,37 +48,32 @@ namespace StreamCompaction {
                 nPadded = paddedSize;
             }
 
-            int* dev_vec_nonPadded;
             int* dev_vec_padded;
-            cudaMalloc((void**)&dev_vec_nonPadded, n * sizeof(int));
-            cudaMemcpy(dev_vec_nonPadded, idata, n * sizeof(int), cudaMemcpyHostToDevice);
             cudaMalloc((void**)&dev_vec_padded, nPadded * sizeof(int));
-
+            cudaMemset(dev_vec_padded, 0, nPadded * sizeof(int));
+            cudaMemcpy(dev_vec_padded, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+            
             timer().startGpuTimer();
             // TODO
             int blockSize = 128;
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
             dim3 fullBlocksPerGridPadded((nPadded + blockSize - 1) / blockSize);
-            // Pad 0s
-            kernNonPaddedToPadded << <fullBlocksPerGridPadded, blockSize >> > (nPadded, n, dev_vec_padded, dev_vec_nonPadded);
             
             // Reduce/Up-Sweep
             for (int d = 0; d <= ilog2ceil(nPadded) - 1; d++) {
                 kernReduce << <fullBlocksPerGridPadded, blockSize >> > (nPadded, d, dev_vec_padded);
             }
-            // Set Root To Zero And Down-Sweep
-            kernSetRootToZero << <fullBlocksPerGridPadded, blockSize >> > (nPadded, dev_vec_padded);
+            // Set Root To Zero
+            cudaMemset(dev_vec_padded + nPadded - 1, 0, sizeof(int));
 
+            // Down-Sweep
             for (int d = ilog2ceil(nPadded) - 1; d >= 0; d--) {
                 downSweep << <fullBlocksPerGridPadded, blockSize >> > (nPadded, d, dev_vec_padded);
             }
-            
-            // Unpad 0s
-            kernPaddedToNonPadded << <fullBlocksPerGrid, blockSize >> > (n, dev_vec_padded, dev_vec_nonPadded);
+
             timer().endGpuTimer();
 
-            cudaMemcpy(odata, dev_vec_nonPadded, n * sizeof(int), cudaMemcpyDeviceToHost);
-            cudaFree(dev_vec_nonPadded);
+            cudaMemcpy(odata, dev_vec_padded, n * sizeof(int), cudaMemcpyDeviceToHost);
             cudaFree(dev_vec_padded);
         }
 
@@ -126,10 +96,10 @@ namespace StreamCompaction {
             }
         }
 
-        __global__ void kernScatter(int n, int* dev_idata, int* dev_vec_nonPadded, int* dev_result) {
+        __global__ void kernScatter(int n, int* dev_idata, int* dev_indices, int* dev_result) {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (index < n && dev_idata[index] != 0) {
-                dev_result[dev_vec_nonPadded[index]] = dev_idata[index];
+                dev_result[dev_indices[index]] = dev_idata[index];
             }
         }
         __global__ void kernCheckNonZeroNum(int n, int* dev_result, int* num) {
@@ -148,14 +118,15 @@ namespace StreamCompaction {
                 nPadded = paddedSize;
             }
 
-            int* dev_vec_nonPadded;
-            int* dev_vec_padded;
-            cudaMalloc((void**)&dev_vec_nonPadded, n * sizeof(int));
-            cudaMemcpy(dev_vec_nonPadded, idata, n * sizeof(int), cudaMemcpyHostToDevice);
-            cudaMalloc((void**)&dev_vec_padded, nPadded * sizeof(int));
+            int* dev_indices;
+            cudaMalloc((void**)&dev_indices, nPadded * sizeof(int));
 
+            int* dev_bool;
+            cudaMalloc((void**)&dev_bool, nPadded * sizeof(int));
+            
             int* dev_idata;
-            cudaMalloc((void**)&dev_idata, n * sizeof(int));
+            cudaMalloc((void**)&dev_idata, nPadded * sizeof(int));
+            cudaMemset(dev_idata, 0, nPadded * sizeof(int));
             cudaMemcpy(dev_idata, idata, n * sizeof(int), cudaMemcpyHostToDevice);
 
             int* dev_result;
@@ -167,45 +138,36 @@ namespace StreamCompaction {
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
             dim3 fullBlocksPerGridPadded((nPadded + blockSize - 1) / blockSize);
             
-            // Pad 0s
-            kernNonPaddedToPadded << <fullBlocksPerGridPadded, blockSize >> > (nPadded, n, dev_vec_padded, dev_vec_nonPadded);
-            
             // Convert to 0s and 1s
-            kernMakeBool << <fullBlocksPerGridPadded, blockSize >> > (nPadded, dev_vec_padded);
+            StreamCompaction::Common::kernMapToBoolean << <fullBlocksPerGridPadded, blockSize >> > (nPadded, dev_bool, dev_idata);
+            cudaMemcpy(dev_indices, dev_bool, nPadded * sizeof(int), cudaMemcpyDeviceToDevice);
 
             // Reduce/Up-Sweep
             for (int d = 0; d <= ilog2ceil(nPadded) - 1; d++) {
-                kernReduce << <fullBlocksPerGridPadded, blockSize >> > (nPadded, d, dev_vec_padded);
+                kernReduce << <fullBlocksPerGridPadded, blockSize >> > (nPadded, d, dev_indices);
             }
-            // Set Root To Zero And Down-Sweep
-            kernSetRootToZero << <fullBlocksPerGridPadded, blockSize >> > (nPadded, dev_vec_padded);
+            // Set Root To Zero
+            cudaMemset(dev_indices + nPadded - 1, 0, sizeof(int));
 
+            // Down-Sweep
             for (int d = ilog2ceil(nPadded) - 1; d >= 0; d--) {
-                downSweep << <fullBlocksPerGridPadded, blockSize >> > (nPadded, d, dev_vec_padded);
+                downSweep << <fullBlocksPerGridPadded, blockSize >> > (nPadded, d, dev_indices);
             }
             
-            // Unpad 0s
-            kernPaddedToNonPadded << <fullBlocksPerGrid, blockSize >> > (n, dev_vec_padded, dev_vec_nonPadded);
-
             // Scatter
-            kernScatter << <fullBlocksPerGrid, blockSize >> > (n, dev_idata, dev_vec_nonPadded, dev_result);
-
-            int* dev_nonZeroNum;
-            cudaMalloc((void**)&dev_nonZeroNum, sizeof(int));
-            int nonZeroNum;
-            kernCheckNonZeroNum << <fullBlocksPerGrid, blockSize >> > (n, dev_result, dev_nonZeroNum);
+            StreamCompaction::Common::kernScatter << <fullBlocksPerGrid, blockSize >> > (n, dev_result, dev_idata, dev_bool, dev_indices);
 
             timer().endGpuTimer();
 
-            cudaMemcpy(&nonZeroNum, dev_nonZeroNum, sizeof(int), cudaMemcpyDeviceToHost);
             cudaMemcpy(odata, dev_result, n * sizeof(int), cudaMemcpyDeviceToHost);
-            cudaFree(dev_vec_nonPadded);
-            cudaFree(dev_vec_padded);
+            int nonZeroNum;
+            cudaMemcpy(&nonZeroNum, dev_indices + nPadded - 1, sizeof(int), cudaMemcpyDeviceToHost);
+
+            cudaFree(dev_indices);
+            cudaFree(dev_bool);
             cudaFree(dev_idata);
             cudaFree(dev_result);
-            cudaFree(dev_nonZeroNum);
 
-            std::cout << nonZeroNum;
             return nonZeroNum;
         }
     }
