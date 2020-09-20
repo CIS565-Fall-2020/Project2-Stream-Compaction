@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\common.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\cpu.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\efficient.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\naive.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\thrust.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\common.cu">
+      <Filter>Sources</Filter>
+    </CustomBuild>
+    <CustomBuild Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\cpu.cu">
+      <Filter>Sources</Filter>
+    </CustomBuild>
+    <CustomBuild Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\efficient.cu">
+      <Filter>Sources</Filter>
+    </CustomBuild>
+    <CustomBuild Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\naive.cu">
+      <Filter>Sources</Filter>
+    </CustomBuild>
+    <CustomBuild Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\thrust.cu">
+      <Filter>Sources</Filter>
+    </CustomBuild>
+    <CustomBuild Include="E:\Learning\CIS565\Project2-Stream-Compaction\stream_compaction\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="E:\Learning\CIS565\Project2-Stream-Compaction\build\stream_compaction\CMakeFiles\stream_compaction.dir\$(Configuration)\stream_compaction_generated_common.cu.obj">
+      <Filter>Object Files</Filter>
+    </Object>
+    <Object Include="E:\Learning\CIS565\Project2-Stream-Compaction\build\stream_compaction\CMakeFiles\stream_compaction.dir\$(Configuration)\stream_compaction_generated_cpu.cu.obj">
+      <Filter>Object Files</Filter>
+    </Object>
+    <Object Include="E:\Learning\CIS565\Project2-Stream-Compaction\build\stream_compaction\CMakeFiles\stream_compaction.dir\$(Configuration)\stream_compaction_generated_efficient.cu.obj">
+      <Filter>Object Files</Filter>
+    </Object>
+    <Object Include="E:\Learning\CIS565\Project2-Stream-Compaction\build\stream_compaction\CMakeFiles\stream_compaction.dir\$(Configuration)\stream_compaction_generated_naive.cu.obj">
+      <Filter>Object Files</Filter>
+    </Object>
+    <Object Include="E:\Learning\CIS565\Project2-Stream-Compaction\build\stream_compaction\CMakeFiles\stream_compaction.dir\$(Configuration)\stream_compaction_generated_thrust.cu.obj">
+      <Filter>Object Files</Filter>
+    </Object>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{F114EF2B-665C-3BD7-9D65-4975B5FBBF4E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Object Files">
+      <UniqueIdentifier>{9BEA7488-590F-3CC6-BDAC-3FDA1EB719E0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources">
+      <UniqueIdentifier>{3E844CD1-D290-3E9E-ABC5-807467FD7887}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
