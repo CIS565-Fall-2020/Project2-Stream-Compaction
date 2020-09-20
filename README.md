@@ -20,6 +20,8 @@ Analysis:
 
 * I also expected the efficient scan to be faster than the naive scan. One factor that potentially slows down the efficient scan is the invocation of "__syncthreads()" in each level of up/down sweep. But in most levels, many threads don't really contribute any work.
 
+* In thrust exclusive_scan implementation, I think it first does some memory copy, and then do the computation.
+
 ### Test Program Output
 
 Array size = 1 << 8
