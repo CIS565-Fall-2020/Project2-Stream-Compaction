@@ -12,13 +12,54 @@ namespace StreamCompaction {
             return timer;
         }
 
+		__global__ void kernEfficientScanUpSweep(int n, int *odata, int d) {
+			int index = threadIdx.x + (blockIdx.x * blockDim.x);
+			if (index >= n) {
+				return;
+			}
+			int interval = (int)pow(2.0, (double)(d + 1));
+			if ((index + 1) % interval == 0) {
+				odata[index] += odata[index - interval / 2];
+			}
+		}
+
+		__global__ void kernEfficientScanDownSweep(int n, int *odata, int d, int topLayer) {
+			int index = threadIdx.x + (blockIdx.x * blockDim.x);
+			if (index >= n) {
+				return;
+			}
+			if (d == topLayer && index == n - 1) {
+				odata[index] = 0;
+			}
+			int interval = (int)pow(2.0, (double)(d + 1));
+			if ((index + 1) % interval == 0) {
+				int tmp = odata[index - interval / 2];
+				odata[index - interval / 2] = odata[index];
+				odata[index] += tmp;
+			}
+		}
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
-            timer().startGpuTimer();
             // TODO
-            timer().endGpuTimer();
+			int *dev_odata, *dev_tmp;
+			cudaMalloc((void**)&dev_odata, n * sizeof(int));
+			cudaMemcpy(dev_odata, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+
+			timer().startGpuTimer();
+			dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
+			int topLayer = ilog2ceil(n) - 1;
+			for (int d = 0; d <= topLayer; d++) {
+				kernEfficientScanUpSweep << <fullBlocksPerGrid, blockSize >> > (n, dev_odata, d);
+			}
+			
+			for (int d = topLayer; d >= 0; d--) {
+				kernEfficientScanDownSweep << <fullBlocksPerGrid, blockSize >> > (n, dev_odata, d, topLayer);
+			}
+
+			timer().endGpuTimer();
+			cudaMemcpy(odata, dev_odata, n * sizeof(int), cudaMemcpyDeviceToHost);
         }
 
         /**

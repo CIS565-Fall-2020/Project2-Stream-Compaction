@@ -29,7 +29,7 @@ namespace StreamCompaction {
 		 */
 		void scan(int n, int *odata, const int *idata) {
 			// TODO
-			int *dev_odata, *dev_idata, *dev_tmp;
+			int *dev_odata, *dev_tmp;
 			cudaMalloc((void**)&dev_odata, n * sizeof(int));
 			int *zero = 0;
 			cudaMemcpy(dev_odata, zero, sizeof(int), cudaMemcpyHostToDevice);
