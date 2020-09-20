@@ -111,12 +111,17 @@ namespace StreamCompaction {
             timer().startGpuTimer();
 
             // malloc necessary space oon GPU
-            int* zerosAndOnes;
+            int* gpu_idata;
+            int* bools;
             int* scanned_data;
             int* scattered_data;
 
-            cudaMalloc((void**)&zerosAndOnes, n * sizeof(int));
-            checkCUDAErrorWithLine("cudaMalloc zerosAndOnes failed!");
+            cudaMalloc((void**)&gpu_idata, n * sizeof(int));
+            checkCUDAErrorWithLine("cudaMalloc gpu_idata failed!");
+            cudaMemcpy(gpu_idata, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+
+            cudaMalloc((void**)&bools, n * sizeof(int));
+            checkCUDAErrorWithLine("cudaMalloc bools failed!");
 
             cudaMalloc((void**)&scanned_data, n * sizeof(int));
             checkCUDAErrorWithLine("cudaMalloc scanned_data failed!");
@@ -124,16 +129,17 @@ namespace StreamCompaction {
             cudaMalloc((void**)&scattered_data, n * sizeof(int));
             checkCUDAErrorWithLine("cudaMalloc scattered_data failed!");
 
-            // change to zeros and ones
             int blockSize = 128;
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
-            Common::kernMapToBoolean << <fullBlocksPerGrid, blockSize >> > (n, zerosAndOnes, idata);
+
+            // change to zeros and ones
+            Common::kernMapToBoolean << <fullBlocksPerGrid, blockSize >> > (n, bools, gpu_idata);
 
             // exclusive scan data
-            scan(n, scanned_data, zerosAndOnes);
+            scan(n, scanned_data, bools);
 
             // scatter
-            Common::kernScatter << <fullBlocksPerGrid, blockSize >> > (n, scattered_data, idata, zerosAndOnes, scanned_data);
+            Common::kernScatter << <fullBlocksPerGrid, blockSize >> > (n, scattered_data, gpu_idata, bools, scanned_data);
             cudaMemcpy(odata, scattered_data, sizeof(int) * n, cudaMemcpyDeviceToHost);
 
             // return last index in scanned_data
@@ -141,7 +147,7 @@ namespace StreamCompaction {
             cudaMemcpy(scanned_cpu.get(), scanned_data, sizeof(int) * n, cudaMemcpyDeviceToHost);
 
             timer().endGpuTimer();
-            return scanned_cpu[n] + 1;
+            return scanned_cpu[n - 1];
         }
     }
 }
