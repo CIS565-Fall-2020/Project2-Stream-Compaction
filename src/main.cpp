@@ -13,7 +13,7 @@
 #include <stream_compaction/thrust.h>
 #include "testing_helpers.hpp"
 
-const int SIZE = 1 << 18; // feel free to change the size of array
+const int SIZE = 1 << 22; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
 int *b = new int[SIZE];
@@ -26,16 +26,15 @@ int main(int argc, char* argv[]) {
     printf("****************\n");
     printf("** SCAN TESTS **\n");
     printf("****************\n");
-    printf("%d\n", SIZE);
 
     genArray(SIZE - 1, a, 50);  // Leave a 0 at the end to test that edge case
-    //onesArray(SIZE, a);
     a[SIZE - 1] = 0;
     printArray(SIZE, a, true);
 
     // initialize b using StreamCompaction::CPU::scan you implement
     // We use b for further comparison. Make sure your StreamCompaction::CPU::scan is correct.
     // At first all cases passed because b && c are all zeroes.
+
     zeroArray(SIZE, b);
     printDesc("cpu scan, power-of-two");
     StreamCompaction::CPU::scan(SIZE, b, a);

@@ -85,7 +85,7 @@ namespace StreamCompaction {
 
             timer().startGpuTimer();
 
-            int blockSize = 32;
+            int blockSize = 128;
             scanHelper(full, d, blockSize, dev_data);            
 
             timer().endGpuTimer();
