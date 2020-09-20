@@ -1,0 +1,2 @@
+[WarpWatch]
+Expressions=threadIdx.x + (blockIdx.x * blockDim.x), n, finalSum[0], idata[257]

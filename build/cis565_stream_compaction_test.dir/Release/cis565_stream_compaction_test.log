@@ -1,0 +1,4 @@
+﻿  main.cpp
+E:\Learning\CIS565\Project2-Stream-Compaction\src\testing_helpers.hpp(53,15): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+     Creating library E:/Learning/CIS565/Project2-Stream-Compaction/build/lib/Release/cis565_stream_compaction_test.lib and object E:/Learning/CIS565/Project2-Stream-Compaction/build/lib/Release/cis565_stream_compaction_test.exp
+  cis565_stream_compaction_test.vcxproj -> E:\Learning\CIS565\Project2-Stream-Compaction\build\bin\Release\cis565_stream_compaction_test.exe
