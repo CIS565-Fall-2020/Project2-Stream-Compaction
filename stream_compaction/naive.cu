@@ -15,16 +15,16 @@ namespace StreamCompaction {
         }
 
         // TODO: __global__
-        __global__ void naiveScanParallel(int n, int startIndex, int* idata, int* odata) {
+        __global__ void naiveScanParallel(int n, int power, int* idata, int* odata) {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (index >= n) {
                 return;
             }
-            if (index < startIndex) {
-                odata[index] = idata[index];
+            if (index >= power) {
+                odata[index] = idata[index - power] + idata[index];
             }
             else {
-                odata[index] = idata[index - startIndex] + idata[index];
+                odata[index] = idata[index];
             }
         }
 
@@ -34,19 +34,25 @@ namespace StreamCompaction {
             if (index >= n) {
                 return;
             }
-            odata[index] = idata[index - 1];
+            if (index == 0) {
+                odata[index] = 0;
+            }
+            else {
+                odata[index] = idata[index - 1];
+            }
         }
 
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
-        void scan(int n, int *odata, const int *idata) {
+        void scan(int n, int* odata, const int* idata) {
             // TODO
             dim3 threadsPerBlock(blockSize);
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
             int* dev_arr1;
             int* dev_arr2;
             int direction = 1;
+            int* tmp = new int[n];
 
             cudaMalloc((void**)&dev_arr1, n * sizeof(int));
             checkCUDAError("dev_arrr1 failed!");
@@ -56,21 +62,52 @@ namespace StreamCompaction {
             cudaMemcpy(dev_arr1, idata, n * sizeof(int), cudaMemcpyHostToDevice);
             timer().startGpuTimer();
 
-            for (int d = 1; d <= ilog2ceil(n); d++) {
-                int startIndex = pow(2, d - 1);
+            int ceil = ilog2ceil(n);
+            for (int d = 1; d <= ceil; d++) {
+                int power = 1 << (d - 1);
                 if (direction == 1) {
-                    naiveScanParallel << <fullBlocksPerGrid, threadsPerBlock >> > (n, startIndex, dev_arr1, dev_arr2);
+                    naiveScanParallel << <fullBlocksPerGrid, threadsPerBlock >> > (n, power, dev_arr1, dev_arr2);
                 }
                 else {
-                    naiveScanParallel << <fullBlocksPerGrid, threadsPerBlock >> > (n, startIndex, dev_arr2, dev_arr1);
+                    naiveScanParallel << <fullBlocksPerGrid, threadsPerBlock >> > (n, power, dev_arr2, dev_arr1);
                 }
+                /*
+                printf("level %d \n", d);
+                for (int i = 0; i < n; i++) {
+                    printf("%3d  ", tmp[i]);
+                }
+                printf("\n");
+                */
                 direction *= -1;
             }
-            convert << <fullBlocksPerGrid, threadsPerBlock >> > (n, dev_arr1, dev_arr2);
+            if (direction == 1) {
+                convert << <fullBlocksPerGrid, threadsPerBlock >> > (n, dev_arr1, dev_arr2);
+                /*
+                printf("result %d \n");
+                for (int i = 0; i < n; i++) {
+                    printf("%3d  ", odata[i]);
+                }
+                printf("\n");
+                */
+            }
+            else {
+                convert << <fullBlocksPerGrid, threadsPerBlock >> > (n, dev_arr2, dev_arr1);
+                /*
+                printf("result %d \n");
+                for (int i = 0; i < n; i++) {
+                    printf("%3d  ", odata[i]);
+                }
+                printf("\n");
+                */
+            }
             timer().endGpuTimer();
+            if (direction == 1) {
+                cudaMemcpy(odata, dev_arr2, n * sizeof(int), cudaMemcpyDeviceToHost);
+            }
+            else {
+                cudaMemcpy(odata, dev_arr1, n * sizeof(int), cudaMemcpyDeviceToHost);
+            }
 
-            cudaMemcpy(odata, dev_arr2, n * sizeof(int), cudaMemcpyDeviceToHost);
-            odata[0] = 0;
         }
     }
 }

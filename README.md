@@ -9,6 +9,10 @@ CUDA Stream Compaction
 
 ### (TODO: Your README)
 
-Include analysis, etc. (Remember, this is public, so don't put
-anything here that you don't want to share with the world.)
+## Debug
+1. Navie Scan
+
+- I ping-pong buffers to keep arr1 as the input data and arr2 as the output data. But I found it inefficient. So I use a flag to denote which one is the input arr at each iteration.
+- I need to determine which array is the final result. At first, I thought dev_arr2 will always be the result. But as I change the array size, dev_arr1 and dev_arr2 are both possible answers.
+
 
