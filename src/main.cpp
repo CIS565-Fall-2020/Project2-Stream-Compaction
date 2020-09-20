@@ -7,13 +7,14 @@
  */
 
 #include <cstdio>
+#include <random>
 #include <stream_compaction/cpu.h>
 #include <stream_compaction/naive.h>
 #include <stream_compaction/efficient.h>
 #include <stream_compaction/thrust.h>
 #include "testing_helpers.hpp"
 
-const int SIZE = 1 << 27; // feel free to change the size of array
+const int SIZE = 1 << 25; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
 int *b = new int[SIZE];
@@ -146,6 +147,36 @@ int main(int argc, char* argv[]) {
     printElapsedTime(StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
     //printArray(count, c, true);
     printCmpLenResult(count, expectedNPOT, b, c);
+
+
+    printf("\n");
+    printf("*********************\n");
+    printf("** RADIX SORT TEST **\n");
+    printf("*********************\n");
+
+    // here we write our own version of genArray that does not make use of grandpa's functions
+    // because on my machine RAND_MAX is 0x7FFF which means not all bits can be tested
+    std::default_random_engine rand(std::random_device{}());
+    std::uniform_int_distribution<int> dist(0, 2000000000);
+    for (std::size_t i = 0; i < SIZE; ++i) {
+        a[i] = dist(rand);
+    }
+    printArray(SIZE, a, true);
+
+    printDesc("radix sort, power-of-two");
+    std::memcpy(b, a, sizeof(int) * SIZE);
+    std::sort(b, b + SIZE);
+    StreamCompaction::Efficient::radix_sort(SIZE, c, a);
+    printCmpResult(SIZE, b, c);
+    printArray(SIZE, c, true);
+
+    printDesc("radix sort, non-power-of-two");
+    std::memcpy(b, a, sizeof(int) * NPOT);
+    std::sort(b, b + NPOT);
+    StreamCompaction::Efficient::radix_sort(NPOT, c, a);
+    printCmpResult(NPOT, b, c);
+    printArray(NPOT, c, true);
+
 
     system("pause"); // stop Win32 console from closing on exit
     delete[] a;
