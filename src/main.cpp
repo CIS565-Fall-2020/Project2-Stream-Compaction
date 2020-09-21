@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     printDesc("naive scan, power-of-two");
     StreamCompaction::Naive::scan(SIZE, c, a);
     printElapsedTime(StreamCompaction::Naive::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
-    printArray(SIZE, c, true);
+    //printArray(SIZE, c, true);
     printCmpResult(SIZE, b, c);
 
     /*For bug-finding only: Array of 1s to help find bugs in stream compaction or scan
@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
     //printArray(NPOT, c, true);
     printCmpResult(NPOT, b, c);
 
-    zeroArray(SIZE, c);
+    /*zeroArray(SIZE, c);
     printDesc("thrust scan, power-of-two");
     StreamCompaction::Thrust::scan(SIZE, c, a);
     printElapsedTime(StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
     StreamCompaction::Thrust::scan(NPOT, c, a);
     printElapsedTime(StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
     //printArray(NPOT, c, true);
-    printCmpResult(NPOT, b, c);
+    printCmpResult(NPOT, b, c);*/
 
     printf("\n");
     printf("*****************************\n");

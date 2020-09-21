@@ -55,7 +55,7 @@ namespace StreamCompaction {
             std::swap(input_temp, input);
             // make ilog2ceil(n) kernel calls for scan
             for (int d = 1; d <= ilog2ceil(n); ++d) {
-                int pow2 = int(powf(2, d - 1));
+                int pow2 = 1 << (d - 1);
                 kernNaiveScan <<< fullBlocksPerGrid, blockSize >> > (n, d, input, input_temp, output, pow2);
                 std::swap(input, input_temp);
             }

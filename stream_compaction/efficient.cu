@@ -41,7 +41,7 @@ namespace StreamCompaction {
         */
         int distanceFromPowTwo(int n) {
             int pos = ceil(log2(n));
-            return int(powf(2, pos)) - n;
+            return int(1 << pos) - n;
         }
 
         /**
@@ -65,15 +65,15 @@ namespace StreamCompaction {
             timer().startGpuTimer();
             // up sweep
             for (int d = 0; d <= ilog2ceil(numItems) - 1; ++d) {
-                int pow2_d = int(powf(2, d));
-                int pow2_d1 = int(powf(2, d + 1));
+                int pow2_d = 1 << d;
+                int pow2_d1 = 1 << (d + 1);
                 kernUpSweep << <fullBlocksPerGrid, blockSize >> > (numItems, d, input, pow2_d, pow2_d1);
             }
             // down sweep
             cudaMemset(input + numItems - 1, 0, sizeof(int));
             for (int d = ilog2ceil(numItems) - 1; d >= 0; --d) {
-                int pow2_d = int(powf(2, d));
-                int pow2_d1 = int(powf(2, d + 1));
+                int pow2_d = 1 << d;
+                int pow2_d1 = 1 << (d + 1);
                 kernDownSweep << <fullBlocksPerGrid, blockSize >> > (numItems, d, input, pow2_d, pow2_d1);
             }
             timer().endGpuTimer();
@@ -114,15 +114,15 @@ namespace StreamCompaction {
             if (!needsPadding) {
                 cudaMemcpy(scanned, bools, sizeof(int) * n, cudaMemcpyDeviceToDevice);
                 for (int d = 0; d <= ilog2ceil(n) - 1; ++d) {
-                    int pow2_d = int(powf(2, d));
-                    int pow2_d1 = int(powf(2, d + 1));
+                    int pow2_d = 1 << d;
+                    int pow2_d1 = 1 << (d + 1);
                     kernUpSweep << <fullBlocksPerGrid, blockSize >> > (n, d, scanned, pow2_d, pow2_d1);
                 }
                 // down sweep
                 cudaMemset(scanned + n - 1, 0, sizeof(int));
                 for (int d = ilog2ceil(n) - 1; d >= 0; --d) {
-                    int pow2_d = int(powf(2, d));
-                    int pow2_d1 = int(powf(2, d + 1));
+                    int pow2_d = 1 << d;
+                    int pow2_d1 = 1 << (d + 1);
                     kernDownSweep << <fullBlocksPerGrid, blockSize >> > (n, d, scanned, pow2_d, pow2_d1);
                 }
                 StreamCompaction::Common::kernScatter << < fullBlocksPerGrid, blockSize >> > (n, output, input, bools, scanned);
@@ -132,15 +132,15 @@ namespace StreamCompaction {
                 cudaMemset(scanned, 0, zerosToPad * sizeof(int));
                 dim3 fullBlocksPerGridScan((numItems + blockSize - 1) / blockSize);
                 for (int d = 0; d <= ilog2ceil(numItems) - 1; ++d) {
-                    int pow2_d = int(powf(2, d));
-                    int pow2_d1 = int(powf(2, d + 1));
+                    int pow2_d = 1 << d;
+                    int pow2_d1 = 1 << (d + 1);
                     kernUpSweep << <fullBlocksPerGridScan, blockSize >> > (numItems, d, scanned, pow2_d, pow2_d1);
                 }
                 // down sweep
                 cudaMemset(scanned + numItems - 1, 0, sizeof(int));
                 for (int d = ilog2ceil(numItems) - 1; d >= 0; --d) {
-                    int pow2_d = int(powf(2, d));
-                    int pow2_d1 = int(powf(2, d + 1));
+                    int pow2_d = 1 << d;
+                    int pow2_d1 = 1 << (d + 1);
                     kernDownSweep << <fullBlocksPerGridScan, blockSize >> > (numItems, d, scanned, pow2_d, pow2_d1);
                 }
                 cudaMemcpy(scannedNoPow2, scanned + zerosToPad, sizeof(int) * n, cudaMemcpyDeviceToDevice);
