@@ -43,19 +43,26 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
             // TODO
+			int N = pow(2, ilog2ceil(n));
 			int *dev_odata, *dev_tmp;
-			cudaMalloc((void**)&dev_odata, n * sizeof(int));
+			cudaMalloc((void**)&dev_odata, N * sizeof(int));
 			cudaMemcpy(dev_odata, idata, n * sizeof(int), cudaMemcpyHostToDevice);
-
+			if (N > n) {
+				int *zeroArray = new int[N - n];
+				for (int i = 0; i < N - n; i++) {
+					zeroArray[i] = 0;
+				}
+				cudaMemcpy(dev_odata + n, zeroArray, (N - n) * sizeof(int), cudaMemcpyHostToDevice);
+			}
 			timer().startGpuTimer();
 			dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
 			int topLayer = ilog2ceil(n) - 1;
 			for (int d = 0; d <= topLayer; d++) {
-				kernEfficientScanUpSweep << <fullBlocksPerGrid, blockSize >> > (n, dev_odata, d);
+				kernEfficientScanUpSweep << <fullBlocksPerGrid, blockSize >> > (N, dev_odata, d);
 			}
 			
 			for (int d = topLayer; d >= 0; d--) {
-				kernEfficientScanDownSweep << <fullBlocksPerGrid, blockSize >> > (n, dev_odata, d, topLayer);
+				kernEfficientScanDownSweep << <fullBlocksPerGrid, blockSize >> > (N, dev_odata, d, topLayer);
 			}
 
 			timer().endGpuTimer();
