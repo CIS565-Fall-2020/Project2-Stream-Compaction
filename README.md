@@ -17,11 +17,11 @@ This project involved implementing Scan and Compact algorithms that will be used
 * a work-efficient version of Scan, and
 * a work-efficient version of Compact that used the work-efficient Scan's code.
 
-All three CPU algorithms are serialized; no multi-threading was incorporated. The Thrust library's version of Scan is also compared with the rest of these algorithms as an additional reference. 
+All three CPU algorithms are serialized; no multi-threading was incorporated. The Thrust library's version of Scan was also compared with the rest of these algorithms as an additional reference. 
 
 ## Performance Analysis Methods
 
-The CPU and GPU algorithms were timed during their execution, and their times are written to a formatted output that is printed to the terminal. An example of that output is as follows:
+The CPU and GPU algorithms were timed during their execution, and their times are formatted in an output printed to the terminal. An example of that output is as follows:
 
 ```
 ****************
@@ -88,10 +88,10 @@ The performance of the four scan functions is graphed below.
 ![](img/scan_perf.png)
 
 * Initially, the GPU implementations of Scan seemed much slower than the CPU implementation, since they were tested on an array size of 256 and the CPU's base speed is extremely fast. However, once the array size was increased exponentially, the performance of both GPU implementations slowly approached the CPU one in numerical speed, even surpassing it for an array of 131,072.
-* The CPU's performance experiences a **38,932%** speed decrease from an array of 256 to the array of 131,072, while the Naive GPU Scan experiences a **199%** decrease and the Work-Efficient one experiences a **343%** decrease respectively.
+* The CPU's performance experiences a **38,932%** speed decrease from an array of 256 to the array of 131,072, while the Naive GPU Scan experiences a **199%** decrease and the Work-Efficient Scan experiences a **343%** decrease respectively.
 * On the graph, the CPU has a linear trajectory, while both the Naive and Work-Efficient Scans have a log(n) trajectory; if more array sizes were tested, this predicts that both GPU implementations will be faster than the CPU's, where the larger the array size, the more efficient the GPU implementations are.
 
-Unfortunately, despite intentions and expectations, the Work-Efficient Scan is less efficient than the Naive Scan. It has a higher base speed, and the slope of its graph is higher than that of the Naive Scan's. The implementation of Work-Efficient Scan involves two `for` loops, one for the "up-sweep" of the initial array and one for the "down-sweep" on the result, and thus twice as many kernel calls. Commenting out one of these `for` loops causes Work-Efficient Scan to be slightly faster than Naive Scan (although wrong, of course), which implies that the presence of two `for` loops makes the implementation slow. I confirmed this when I looked at the kernels' runtime through the NSight Analysis interface:
+Unfortunately, the Work-Efficient Scan is less efficient than the Naive Scan. Besides its higher base speed, the slope of its graph is higher than that of the Naive Scan's. The implementation of Work-Efficient Scan involves two `for` loops, one for the "up-sweep" of the initial array and one for the "down-sweep" on the result, and thus twice as many kernel calls. Commenting out one of these `for` loops causes Work-Efficient Scan to be slightly faster than Naive Scan (although wrong, of course), which implies that the presence of two `for` loops makes the implementation slow. I confirmed this when I looked at the kernels' runtime through the NSight Analysis interface:
 
 ![](img/scan_cuda_analysis.png)
 
@@ -115,7 +115,7 @@ As a whole, even though the base speeds of these work-efficient algorithms are h
 
 ## Outliers
 
-While I was collecting data, I observed some abnormal values throughout the program that appeared and disappeared with program refreshes. For some sizes of the randomly-generated array, the algorithms produce fluctuating values that interfere with the expected trajectory of data from their functions. A notable example happens with the cases of Thrust Scan: when I tested an array size of 1021 with block size 128 during my implementation process, the Thrust Scan showed a value of 0.231424, five times slower than its expected average speed. It showed something similar at array size 32,768, spiking again to some value between 0.20 and 0.25ms, equivalent in magnitude to the other lag spike. There was also some interference with the Work-Efficient Scan and Compact algorithms, especially the Work_Efficient Contact. The most out-of-place value I observed was a performance of 0.81392 ms at array size 32,768. Though this instability explains the fluctuation in the slopes of their graphs, I cannot think of an explanation for why this happens, because the size of the array stays constant (and subsequent trials will show expected results). 
+While I was collecting data, I observed some abnormal values throughout the program that appeared and disappeared with program refreshes. For some sizes of the randomly-generated array, the algorithms produce fluctuating values that interfere with the expected trajectory of data from their functions. A notable example happens with the cases of Thrust Scan: when I tested an array size of 1021 with block size 128 during my implementation process, the Thrust Scan showed a value of **0.231424 ms**, **five times slower** than its expected average speed. It showed something similar at array size 32,768, spiking again to some value between 0.20 and 0.25ms, equivalent in magnitude to the other lag spike. There was also some interference with the Work-Efficient Scan and Compact algorithms, especially the Work-Efficient Compact. The most out-of-place value I observed was a performance of **0.81392 ms** at array size 32,768. Though this instability explains the fluctuation in the slopes of their graphs, I cannot think of an explanation for why this happens, because the size of the array stays constant (and subsequent trials will show more expected results). 
 
 ## Block Size Optimization
 
