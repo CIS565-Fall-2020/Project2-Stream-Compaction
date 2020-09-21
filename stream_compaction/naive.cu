@@ -18,7 +18,7 @@ namespace StreamCompaction {
 				return;
 			}
 			
-			int offset = (int)pow(float(2), (float)(d - 1));
+			int offset = 1 << (d - 1);
 			if (index >= offset) {
 				tmp[index] = odata[index - offset] + odata[index];
 			}
