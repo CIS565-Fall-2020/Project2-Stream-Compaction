@@ -20,7 +20,8 @@ namespace StreamCompaction {
             if (index >= n) {
                 return;
             }
-            int curr_bit = pow(2.0, pass);
+            // int curr_bit = pow(2.0, pass);
+            int curr_bit = 1 << pass;
             int bit_res = curr_bit & data_array[index];
             if (curr_bit == bit_res) {
                 // Current bit is 1:
@@ -66,15 +67,18 @@ namespace StreamCompaction {
         }
 
         void radix_sort(int n, int* odata, const int* idata) {
-            int blockSize = 128;
-            dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
+            int blockSize = 32;
+            // dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
+            dim3 fullBlocksPerGrid((n / blockSize) + 1);
             int sizeInBytes = n * sizeof(int);
 
             // Scan Init:
             int n_ilog2 = ilog2ceil(n);
-            int fit_size = pow(2, n_ilog2);
+            // int fit_size = pow(2, n_ilog2);
+            int fit_size = 1 << n_ilog2;
             int fitSizeInBytes = fit_size * sizeof(int);
-            dim3 scanFullBlocksPerGrid((fit_size + blockSize - 1) / blockSize);
+            // dim3 scanFullBlocksPerGrid((fit_size + blockSize - 1) / blockSize);
+            dim3 scanFullBlocksPerGrid((n / blockSize) + 1);
 
             cudaMalloc((void**)&dev_radix_data_array, sizeInBytes);
             checkCUDAError("cudaMalloc dev_data_array failed!");
@@ -110,14 +114,18 @@ namespace StreamCompaction {
                 int d_max = ilog2ceil(n) - 1;
                 // Up sweep:
                 for (int d = 0; d <= d_max; ++d) {
-                    int threads_num_needed = fit_size * pow(0.5, d + 1);
+                    int deno = 1 << (d + 1);
+                    // int threads_num_needed = fit_size * pow(0.5, d + 1);
+                    int threads_num_needed = fit_size / deno;
                     dim3 up_sweep_blocks_per_grid((threads_num_needed + blockSize - 1) / blockSize);
                     StreamCompaction::Efficient::up_sweep <<<up_sweep_blocks_per_grid, blockSize>>> (dev_f_array, fit_size, d);
                 }
                 cudaMemset(dev_f_array + fit_size - 1, 0, sizeof(int));
                 // Down sweep:
                 for (int d = d_max; d >= 0; --d) {
-                    int threads_num_needed = fit_size * pow(0.5, d + 1);
+                    int deno = 1 << (d + 1);
+                    // int threads_num_needed = fit_size * pow(0.5, d + 1);
+                    int threads_num_needed = fit_size / deno;
                     dim3 down_sweep_blocks_per_grid((threads_num_needed + blockSize - 1) / blockSize);
                     StreamCompaction::Efficient::down_sweep <<<down_sweep_blocks_per_grid, blockSize>>> (dev_f_array, fit_size, d);
                 }
@@ -139,12 +147,11 @@ namespace StreamCompaction {
                 cudaMemcpy(dev_radix_data_array, dev_output_array, sizeInBytes, cudaMemcpyDeviceToDevice);
                 checkCUDAError("cudaMemcpy output to radix failed!");
             }
+            timer().endGpuTimer();
 
             // Copy to output data:
             cudaMemcpy(odata, dev_output_array, sizeInBytes, cudaMemcpyDeviceToHost);
-            checkCUDAError("cudaMemcpy odata failed!");
-
-            timer().endGpuTimer();
+            checkCUDAError("cudaMemcpy odata failed!");            
 
             cudaFree(dev_radix_data_array);
             checkCUDAError("cudaFree(dev_data_array) failed!");

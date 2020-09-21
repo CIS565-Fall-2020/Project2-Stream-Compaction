@@ -3,8 +3,6 @@
 #include "common.h"
 #include "naive.h"
 
-int* dev_data_array1, * dev_data_array2;
-
 namespace StreamCompaction {
     namespace Naive {
         using StreamCompaction::Common::PerformanceTimer;
@@ -19,7 +17,9 @@ namespace StreamCompaction {
             if (index >= n) {
                 return;
             }
-            int two_power_d_min_1 = powf(2, d - 1);
+            // int two_power_d_min_1 = powf(2.0, d - 1);
+            int two_power_d_min_1 = 1 << (d - 1);
+            
             if (index >= two_power_d_min_1) {
                 dev_array2[index] = dev_array1[index - two_power_d_min_1] + dev_array1[index];
             }
@@ -40,15 +40,15 @@ namespace StreamCompaction {
                 dev_array2[index] = dev_array1[index - 1];
             }
         }
-
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
+            int* dev_data_array1, * dev_data_array2;
             // Init all the requirement data:
             int sizeInBytes = n * sizeof(int);
-            int blockSize = 128;
-            dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
+            int blockSize = 32;
+            dim3 fullBlocksPerGrid((n / blockSize) + 1);
 
             cudaMalloc((void**)&dev_data_array1, sizeInBytes);
             checkCUDAError("cudaMalloc dev_data_array1 failed!");
