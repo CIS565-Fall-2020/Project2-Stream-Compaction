@@ -95,9 +95,9 @@ namespace StreamCompaction {
                     count++;
                 }
             }
+            timer().endCpuTimer();
             delete[] scanned;
             delete[] temp;
-            timer().endCpuTimer();
             return count;
         }
     }

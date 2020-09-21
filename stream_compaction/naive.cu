@@ -14,23 +14,20 @@ namespace StreamCompaction {
             return timer;
         }
 
-        __global__ void kernNaiveScan(int n, int d, int* in1, int* in2, int* out) {
+        __global__ void kernNaiveScan(int n, int d, int* in1, int* in2, int* out, int pow2_d) {
             int index = threadIdx.x + (blockIdx.x * blockDim.x);
-            if (index >= n) {
-                return;
-            }
-            int pow2 = int(powf(2, d - 1));
-            if (index >= pow2) {
-                out[index] = in1[index - pow2] + in1[index];
+
+            if (index >= n) return;
+            if (index >= pow2_d) {
+                out[index] = in1[index - pow2_d] + in1[index];
             }
             in2[index] = out[index];
         }
 
         __global__ void kernShiftArray(int n, int* in1, int* in2) {
             int index = threadIdx.x + (blockIdx.x * blockDim.x);
-            if (index >= n) {
-                return;
-            }
+
+            if (index >= n) return;
             if (index == 0) in2[index] = 0;
             else {
                 in2[index] = in1[index - 1];
@@ -58,7 +55,8 @@ namespace StreamCompaction {
             std::swap(input_temp, input);
             // make ilog2ceil(n) kernel calls for scan
             for (int d = 1; d <= ilog2ceil(n); ++d) {
-                kernNaiveScan <<< fullBlocksPerGrid, blockSize >> > (n, d, input, input_temp, output);
+                int pow2 = int(powf(2, d - 1));
+                kernNaiveScan <<< fullBlocksPerGrid, blockSize >> > (n, d, input, input_temp, output, pow2);
                 std::swap(input, input_temp);
             }
             timer().endGpuTimer();
