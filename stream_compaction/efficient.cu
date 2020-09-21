@@ -17,9 +17,10 @@ namespace StreamCompaction {
 			if (index >= n) {
 				return;
 			}
-			int interval = (int)pow(2.0, (double)(d + 1));
+			int interval = 1 << (d + 1);
+			int halfInterval = 1 << d;
 			if ((index + 1) % interval == 0) {
-				odata[index] += odata[index - interval / 2];
+				odata[index] += odata[index - halfInterval];
 			}
 		}
 
@@ -31,10 +32,11 @@ namespace StreamCompaction {
 			if (d == topLayer && index == n - 1) {
 				odata[index] = 0;
 			}
-			int interval = (int)pow(2.0, (double)(d + 1));
+			int interval = 1 << (d + 1);
+			int halfInterval = 1 << d;
 			if ((index + 1) % interval == 0) {
-				int tmp = odata[index - interval / 2];
-				odata[index - interval / 2] = odata[index];
+				int tmp = odata[index - halfInterval];
+				odata[index - halfInterval] = odata[index];
 				odata[index] += tmp;
 			}
 		}

@@ -17,10 +17,13 @@ namespace StreamCompaction {
 			if (index >= n) {
 				return;
 			}
-			tmp[index] = odata[index];
-			int offset = (int)pow(2.0, (double)(d - 1));
+			
+			int offset = (int)pow(float(2), (float)(d - 1));
 			if (index >= offset) {
 				tmp[index] = odata[index - offset] + odata[index];
+			}
+			else {
+				tmp[index] = odata[index];
 			}
 		}
 
