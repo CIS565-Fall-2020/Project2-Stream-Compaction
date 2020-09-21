@@ -19,6 +19,7 @@ namespace StreamCompaction {
             d_data[idx] = val;
         }
 
+#pragma region vanilla
         __global__ void kernUpSweepStep(
             int N,
             int d_2,
@@ -49,10 +50,65 @@ namespace StreamCompaction {
                 d_data[k + 2 * d_2 - 1] = tmp + d_data[k + 2 * d_2 - 1];
             }
         }
+#pragma endregion
+
+#pragma region indexScale
+// for part 5
+        __global__ void kernUpSweepIndexScaleStep(
+            int N,
+            int d_2,
+            int* d_data
+        ) {
+            int k = 2 * d_2 * ( (blockIdx.x * blockDim.x) + threadIdx.x) + 2 * d_2 - 1;
+            /*k *= 2 * d_2;
+            k += 2 * d_2 - 1;*/
+            if (k >= N) {
+                return;
+            }
+            d_data[k] += d_data[k - d_2];
+        }
+
+        __global__ void kernDownSweepIndexScaleStep(
+            int N,
+            int d_2,
+            int* d_data
+        ) {
+            int k = 2 * d_2 * ((blockIdx.x * blockDim.x) + threadIdx.x) + 2 * d_2 - 1;
+            if (k >= N) {
+                return;
+            }
+            int tmp = d_data[k - d_2];
+            d_data[k - d_2] = d_data[k];
+            d_data[k] = tmp + d_data[k];
+        }
+#pragma endregion
+
+#pragma region SharedMemory
+        __global__ void kernSharedMemoryScan(int N, float* dev_idata) {
+            int t_offset = blockIdx.x * blockDim.x;
+            int t_id = threadIdx.x;
+            int k = t_offset + t_id;
+            if (k >= N) {
+                return;
+            }
+
+            extern __shared__ float shared[];
+            // upsweep
+
+            __syncthreads();
+            // make last element to zero
+            if (k == 0) {
+                dev_idata[N - 1] = 0;
+            }
+            __syncthreads();
+            // downsweep
+
+        }
+ #pragma endregion
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
-        void scan(int n, int *odata, const int *idata, bool ifTimer = true) {
+        void scan(int n, int *odata, const int *idata, bool ifTimer = true,bool ifIdxScale = false, bool ifSharedMemory = false) {
             if (n == 0) {
                 return;
             }
@@ -74,18 +130,38 @@ namespace StreamCompaction {
             }
             
             // TODO
-            for (int d = 0; d <= log_n - 1; d ++) {
-                kernUpSweepStep<<<blocksPerGrid, efficient_blocksize >>>(n_2, 1 << d, dev_idata);
-            }
+            if (!ifSharedMemory) {
+                for (int d = 0; d <= log_n - 1; d++) {
+                    if (ifIdxScale) {
+                        blocksPerGrid = (n_2 / (1 << (1 + d))  + efficient_blocksize - 1) / efficient_blocksize;
+                        kernUpSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    }
+                    else {
+                        kernUpSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    }
+                    
+                }
 
-            //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
-            kernUpdateArray<<<1, 1>>>(n_2 - 1, 0, dev_idata);
-            //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
+                //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
+                kernUpdateArray << <1, 1 >> > (n_2 - 1, 0, dev_idata);
+                //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
+
+
+                for (int d = log_n - 1; d >= 0; d--) {
+                    if (ifIdxScale) {
+                        blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                        kernDownSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    }
+                    else {
+                        kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    }
+                }
+            }
+            else {
+
+                //kernSharedMemoryScan
+            }
             
-
-            for (int d = log_n - 1; d >= 0; d--) {
-                kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-            }
 
             if (ifTimer) {
                 timer().endGpuTimer();
@@ -160,6 +236,9 @@ namespace StreamCompaction {
         }
     }
 
+
+
+    // ref ::  gpu gem
     __global__ void prescan(float* g_odata, float* g_idata, int n) {
         extern __shared__ float temp[];  // allocated on invocation 
         int thid = threadIdx.x; int offset = 1; 

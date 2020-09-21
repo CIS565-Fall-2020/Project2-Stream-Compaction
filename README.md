@@ -19,9 +19,14 @@ In this project, basically we implement parallel scan algorithm based on CUDA re
 
 
 
+#### Part 1~4:
+
+
+
 #### Part 5: why GPU version so slow
 
-The reason why the 
+The reason why the GPU is slower than CPU version:
 
-1. memory bandwidth: the current version fetches memory uncontinuously, which leads to a low memory bandwidth.  
+1. **Spatial coherence:** The cpu version reads the memory in a continuous way while the current version fetches memory uncontinuously, which leads to a low memory bandwidth.  
+2. **The input size matters:** When the size of input array is trivial (for example 2^4), **cpu** version is faster than **gpu's**. When the size goes up, the situation goes reversed and **gpu** version is much faster than **cpu's** since naturally **gpu** is better in dealing with a large amounts of number.
 
