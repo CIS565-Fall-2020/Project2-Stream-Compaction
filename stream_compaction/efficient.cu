@@ -138,6 +138,37 @@ namespace StreamCompaction {
             dev_idata[k - d_2] = shared[2 * t_id];
             dev_idata[k] = shared[2 * t_id + 1];
         }
+
+        /*__global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int cur_depth, int target_depth, int* dev_idata) {
+            int t_offset = blockIdx.x * blockDim.x;
+            int t_id = threadIdx.x;
+            int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
+            if (k >= N) {
+                return;
+            }
+
+            extern __shared__ float shared[];
+            shared[2 * t_id] = dev_idata[k - d_2];
+            shared[2 * t_id + 1] = dev_idata[k];
+            __syncthreads();
+
+            for (int i = cur_depth - 1; i >= target_depth; i--) {
+                int mul = 1 << (i + 1);
+                int idx_a = mul * (t_id + 1) - 1;
+                int idx_b = mul * (t_id + 1) - mul / 2 - 1;
+                if (idx_a < 2 * blockDim.x) {
+                    int a = shared[idx_a];
+                    int b = shared[idx_b];
+                    int tmp = shared[idx_b];
+                    shared[idx_b] = shared[idx_a];
+                    shared[idx_a] += tmp;
+                }
+                __syncthreads();
+            }
+
+            dev_idata[k - d_2] = shared[2 * t_id];
+            dev_idata[k] = shared[2 * t_id + 1];
+        }*/
  #pragma endregion
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
