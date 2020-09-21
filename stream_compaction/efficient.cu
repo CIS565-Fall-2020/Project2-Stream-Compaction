@@ -8,7 +8,7 @@
 
 int* dev_data;
 int* dev_scanData;
-int* dev_tempData;
+int* dev_boolData;
 int* dev_oData;
 
 namespace StreamCompaction {
@@ -32,6 +32,21 @@ namespace StreamCompaction {
 
         }
 
+        __global__ void kernSetRootNode(int n, int* data) {
+            int index = blockIdx.x * blockDim.x + threadIdx.x;
+            if (index >= n) {
+                return;
+            }
+
+            data[n - 1] = 0;
+        }
+
+        // if you copy the NPOT array into a POT GPU bfffer, and you pad any of the data
+        // that doesn't exist with zeroes, it makes result of the scan instead of the
+        // array being like. if you pad zeroes, the value gets repeated a bunch of times
+
+        // could also try to adjust how many threads get run
+
         __global__ void kernStepDownSweep(int n, int* data, int pow2) {
             int index = blockIdx.x * blockDim.x + threadIdx.x;
             if (index >= n) {
@@ -48,49 +63,31 @@ namespace StreamCompaction {
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
+
         void scan(int n, int *odata, const int *idata) {
             int numBlocks = ceil((float)n / (float)blockSize);
             int log2n = ilog2ceil(n);
             const int size = (int)powf(2, log2n);
 
-            cudaMalloc((void**)&dev_scanData, sizeof(int) * size);
-            cudaMemcpy(dev_scanData, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+            cudaMalloc((void**)&dev_data, sizeof(int) * size);
+            cudaMemcpy(dev_data, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+
             timer().startGpuTimer();
             for (int d = 0; d <= log2n - 1; d++) {
-                kernStepUpSweep <<<numBlocks, blockSize >>> (size, dev_scanData, (int)powf(2, d));
+                kernStepUpSweep <<<numBlocks, blockSize >>> (size, dev_data, (int)powf(2, d));
             }
 
-            odata[size - 1] = 0;
-            cudaMemcpy(dev_scanData + size - 1, odata + size - 1, sizeof(int), cudaMemcpyHostToDevice);
-
+            kernSetRootNode << <1, 1 >> > (size, dev_data);
+            
             for (int d = log2n - 1; d >= 0; d--) {
-                kernStepDownSweep << <numBlocks, blockSize >> > (size, dev_scanData, (int)powf(2, d));
+                kernStepDownSweep << <numBlocks, blockSize >> > (size, dev_data, (int)powf(2, d));
             }
 
             timer().endGpuTimer();
 
-            cudaMemcpy(odata, dev_scanData, sizeof(int) * n, cudaMemcpyDeviceToHost);
+            cudaMemcpy(odata, dev_data, sizeof(int) * n, cudaMemcpyDeviceToHost);
 
-            cudaFree(dev_scanData);
-        }
-
-        __global__ void kernMakeTempArray(int n, int *tempData, int *data) {
-            int index = blockIdx.x * blockDim.x + threadIdx.x;
-            if (index >= n) {
-                return;
-            }
-            tempData[index] = data[index] == 0 ? 0 : 1;
-        }
-
-        __global__ void kernScatter(int n, int* odata, int* tempData, int* data, int* scanData) {
-            int index = blockIdx.x * blockDim.x + threadIdx.x;
-            if (index >= n) {
-                return;
-            }
-
-            if (tempData[index] != 0) {
-                odata[scanData[index]] = data[index];
-            }
+            cudaFree(dev_data);
         }
 
         /**
@@ -108,45 +105,44 @@ namespace StreamCompaction {
             const int size = (int)powf(2, log2n);
 
             cudaMalloc((void**)&dev_data, sizeof(int) * size);
-            cudaMalloc((void**)&dev_scanData, sizeof(int) * n);
-            cudaMalloc((void**)&dev_tempData, sizeof(int) * n);
+            cudaMalloc((void**)&dev_boolData, sizeof(int) * size);
             cudaMalloc((void**)&dev_oData, sizeof(int) * n);
 
             cudaMemcpy(dev_data, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
-            cudaMemcpy(dev_scanData, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
 
             timer().startGpuTimer();
             // Make temporary array
-            kernMakeTempArray << <numBlocks, blockSize >> > (n, dev_tempData, dev_data);
+            StreamCompaction::Common::kernMapToBoolean << <numBlocks, blockSize >> > (size, dev_boolData, dev_data);
 
             // Scan
             for (int d = 0; d <= log2n - 1; d++) {
-                kernStepUpSweep << <numBlocks, blockSize >> > (n, dev_scanData, (int)powf(2, d));
+                kernStepUpSweep << <numBlocks, blockSize >> > (size, dev_boolData, (int)powf(2, d));
             }
 
-            odata[n - 1] = 0;
-
-            cudaMemcpy(dev_scanData + n - 1, odata + n - 1, sizeof(int), cudaMemcpyHostToDevice);
+            odata[size - 1] = 0;
+            cudaMemcpy(dev_boolData + size - 1, odata + size - 1, sizeof(int), cudaMemcpyHostToDevice);
 
             for (int d = log2n - 1; d >= 0; d--) {
-                kernStepDownSweep << <numBlocks, blockSize >> > (n, dev_scanData, (int)powf(2, d));
+                kernStepDownSweep << <numBlocks, blockSize >> > (size, dev_boolData, (int)powf(2, d));
             }
 
-            kernScatter << <numBlocks, blockSize >> > (n, dev_tempData, dev_oData, dev_data, dev_scanData);
+            StreamCompaction::Common::kernScatter << <numBlocks, blockSize >> > (n, dev_oData, dev_data, dev_boolData, nullptr);
 
             timer().endGpuTimer();
+
+            int* boolArray = new int[n];
+            cudaMemcpy(odata, dev_oData, sizeof(int) * n, cudaMemcpyDeviceToHost);
+            cudaMemcpy(boolArray, dev_boolData, sizeof(int) * n, cudaMemcpyDeviceToHost);
+
             cudaFree(dev_data);
-            cudaFree(dev_tempData);
-            cudaFree(dev_scanData);
+            cudaFree(dev_boolData);
             cudaFree(dev_oData);
 
-            for (int i = 0; i < n; i++) {
-                if (odata[i] == 0) {
-                    return i;
-                }
+            if (idata[n - 1] == 0) {
+                return boolArray[n - 1];
             }
 
-            return n;
+            return boolArray[n - 1] + 1;
         }
     }
 }

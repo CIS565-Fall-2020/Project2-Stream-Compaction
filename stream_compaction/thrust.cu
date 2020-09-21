@@ -6,6 +6,9 @@
 #include "common.h"
 #include "thrust.h"
 
+int* dev_inData;
+int* dev_outData;
+
 namespace StreamCompaction {
     namespace Thrust {
         using StreamCompaction::Common::PerformanceTimer;
@@ -18,11 +21,18 @@ namespace StreamCompaction {
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
+
+            cudaMalloc((void**)&dev_inData, sizeof(int) * n);
+            cudaMalloc((void**)&dev_outData, sizeof(int) * n);
+            cudaMemcpy(dev_inData, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
             timer().startGpuTimer();
-            // TODO use `thrust::exclusive_scan`
-            // example: for device_vectors dv_in and dv_out:
-            // thrust::exclusive_scan(dv_in.begin(), dv_in.end(), dv_out.begin());
+            thrust::device_ptr<int> dev_thrust_idata(dev_inData);
+            thrust::device_ptr<int> dev_thrust_odata(dev_outData);
+            thrust::exclusive_scan(dev_thrust_idata, dev_thrust_idata + n, dev_thrust_odata);
             timer().endGpuTimer();
+            cudaMemcpy(odata, dev_outData, sizeof(int) * n, cudaMemcpyDeviceToHost);
+            cudaFree(dev_inData);
+            cudaFree(dev_outData);
         }
     }
 }
