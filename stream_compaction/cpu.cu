@@ -12,18 +12,22 @@ namespace StreamCompaction {
             return timer;
         }
 
+        void cpu_scan(int n, int* odata, const int* idata) {
+            odata[0] = 0;
+            for (int i = 0; i < n - 1; i++) {
+                odata[i + 1] = odata[i] + idata[i];
+            }
+        }
+
         /**
          * CPU scan (prefix sum).
          * For performance analysis, this is supposed to be a simple for loop.
          * (Optional) For better understanding before starting moving to GPU, you can simulate your GPU scan in this function first.
          */
         void scan(int n, int *odata, const int *idata) {
-            //timer().startCpuTimer();
-            odata[0] = 0;
-            for (int i = 0; i < n - 1; i++) {
-                odata[i + 1] = odata[i] + idata[i];
-            }
-            //timer().endCpuTimer();
+            timer().startCpuTimer();
+            cpu_scan(n, odata, idata);
+            timer().endCpuTimer();
         }
 
         /**
@@ -40,7 +44,7 @@ namespace StreamCompaction {
                 }
             }
             timer().endCpuTimer();
-            return o - 1;
+            return o;
         }
 
         /**
@@ -55,7 +59,7 @@ namespace StreamCompaction {
                 map[i] = idata[i] ? 1 : 0;
             }
             int* sout = new int[n];
-            scan(n, sout, map);
+            cpu_scan(n, sout, map);
             int o = 0;
             for (int i = 0; i < n; i++) {
                 if (map[i] != 0) {
@@ -63,10 +67,10 @@ namespace StreamCompaction {
                     o++;
                 }
             }
-            timer().endCpuTimer();
             delete[] map;
             delete[] sout;
-            return o - 1;
+            timer().endCpuTimer();
+            return o;
         }
     }
 }

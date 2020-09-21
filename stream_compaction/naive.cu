@@ -43,11 +43,7 @@ namespace StreamCompaction {
             numObjects = N;
             cudaMalloc((void**)&dev_bufferA, N * sizeof(int));
             cudaMalloc((void**)&dev_bufferB, N * sizeof(int));
-            int a = B[0];
-            cudaMemcpy(dev_bufferA, &a, sizeof(int), cudaMemcpyHostToDevice);
             cudaMemcpy(dev_bufferB, B, N * sizeof(int), cudaMemcpyHostToDevice);
-
-            cudaDeviceSynchronize();
         }
 
         void endSimulation() {
@@ -59,16 +55,14 @@ namespace StreamCompaction {
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
-            
-            initSimulation(n, idata);
-            const int blockSize = 64;
             timer().startGpuTimer();
+            initSimulation(n, idata);
+            const int blockSize = 256;
             dim3 numBoidBlocks((n + blockSize - 1) / blockSize);
             int dmax = ilog2ceil(n);
 
             for (int i = 1; i <= dmax; i++) {
                 kernNaiveScan << <numBoidBlocks, blockSize >> > (n, dev_bufferA, dev_bufferB, i);
-                cudaDeviceSynchronize();
                 
             }
             if (dmax % 2 == 0) {
