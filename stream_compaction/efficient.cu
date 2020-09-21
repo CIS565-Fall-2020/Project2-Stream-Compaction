@@ -77,32 +77,59 @@ namespace StreamCompaction {
             if (k >= N) {
                 return;
             }
-            int tmp = d_data[k - d_2];
+            int tmp = d_data[k 
+                - d_2];
             d_data[k - d_2] = d_data[k];
             d_data[k] = tmp + d_data[k];
         }
 #pragma endregion
 
 #pragma region SharedMemory
-        __global__ void kernSharedMemoryScan(int N, float* dev_idata) {
+        __global__ void kernSharedMemoryUpSweepStep(int N, int d_2, int* dev_idata) {
             int t_offset = blockIdx.x * blockDim.x;
             int t_id = threadIdx.x;
-            int k = t_offset + t_id;
+            int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
             if (k >= N) {
                 return;
             }
 
             extern __shared__ float shared[];
-            // upsweep
-
+            shared[2 * t_id] = dev_idata[k - d_2];
+            shared[2 * t_id + 1] = dev_idata[k];
             __syncthreads();
-            // make last element to zero
-            if (k == 0) {
-                dev_idata[N - 1] = 0;
+
+            shared[2 * t_id + 1] += shared[2 * t_id];
+            
+            /*for (int i = 1; i <= unroll_depth; i++) {
+                int mul = 1 << (i + 1);
+                shared[mul * (t_id + 1) - 1] += shared[mul * (t_id + 1) - mul >> 1 - 1];
+                __syncthreads();
+            }*/
+            
+
+            dev_idata[k] = shared[2 * t_id + 1];
+        }
+
+        __global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int* dev_idata) {
+            int t_offset = blockIdx.x * blockDim.x;
+            int t_id = threadIdx.x;
+            int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
+            if (k >= N) {
+                return;
             }
-            __syncthreads();
-            // downsweep
 
+            extern __shared__ float shared[];
+            shared[2 * t_id] = dev_idata[k - d_2];
+            shared[2 * t_id + 1] = dev_idata[k];
+            __syncthreads();
+
+            int tmp = shared[2 * t_id];
+            shared[2 * t_id] = shared[2 * t_id + 1];
+            shared[2 * t_id + 1] += tmp;
+            __syncthreads();
+
+            dev_idata[k - d_2] = shared[2 * t_id];
+            dev_idata[k] = shared[2 * t_id + 1];
         }
  #pragma endregion
         /**
@@ -130,37 +157,43 @@ namespace StreamCompaction {
             }
             
             // TODO
-            if (!ifSharedMemory) {
-                for (int d = 0; d <= log_n - 1; d++) {
-                    if (ifIdxScale) {
-                        blocksPerGrid = (n_2 / (1 << (1 + d))  + efficient_blocksize - 1) / efficient_blocksize;
-                        kernUpSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-                    }
-                    else {
-                        kernUpSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-                    }
+            
+            for (int d = 0; d <= log_n - 1; d++) {
+                if (ifIdxScale) {
+                    blocksPerGrid = (n_2 / (1 << (1 + d))  + efficient_blocksize - 1) / efficient_blocksize;
+                    kernUpSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                }
+                else if (ifSharedMemory) {
+                    blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                    kernSharedMemoryUpSweepStep <<<blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >>> (n_2, 1 << d, dev_idata);
+                }
+                else{
+                    kernUpSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                }
+
                     
+            }
+
+            //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
+            kernUpdateArray << <1, 1 >> > (n_2 - 1, 0, dev_idata);
+            //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
+
+
+            for (int d = log_n - 1; d >= 0; d--) {
+                if (ifIdxScale) {
+                    blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                    kernDownSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
                 }
-
-                //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
-                kernUpdateArray << <1, 1 >> > (n_2 - 1, 0, dev_idata);
-                //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
-
-
-                for (int d = log_n - 1; d >= 0; d--) {
-                    if (ifIdxScale) {
-                        blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
-                        kernDownSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-                    }
-                    else {
-                        kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-                    }
+                else if (ifSharedMemory) {
+                    blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                    kernSharedMemoryDownSweepStep << <blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >> > (n_2, 1 << d, dev_idata);
+                }
+                else {
+                    kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
                 }
             }
-            else {
-
-                //kernSharedMemoryScan
-            }
+            
+            
             
 
             if (ifTimer) {
@@ -204,7 +237,7 @@ namespace StreamCompaction {
             dim3 blocksPerGrid = (N + efficient_blocksize - 1) / efficient_blocksize;
             Common::kernMapToBoolean << <blocksPerGrid, efficient_blocksize >> > (N, dev_bools, dev_idata);
             
-            scan(N, dev_indices, dev_bools, false);
+            scan(N, dev_indices, dev_bools, false, true, false);
 
             Common::kernScatter << <blocksPerGrid, efficient_blocksize >> > (
                 N, 

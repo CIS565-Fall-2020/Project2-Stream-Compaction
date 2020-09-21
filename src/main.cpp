@@ -14,7 +14,7 @@
 #include "testing_helpers.hpp"
 #include "csvfile.hpp"
 
-const int power = 24;
+const int power = 19;
 const int SIZE = 1 << power; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
@@ -102,7 +102,19 @@ int main(int argc, char* argv[]) {
     printArray(NPOT, c, true);
     printCmpResult(NPOT, b, c);
 
+    zeroArray(SIZE, c);
+    printDesc("work-efficient scan with shared memory, power-of-two");
+    StreamCompaction::Efficient::scan(SIZE, c, a, true, false, true);
+    printElapsedTime(StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
+    printArray(SIZE, c, true);
+    printCmpResult(SIZE, b, c);
 
+    zeroArray(SIZE, c);
+    printDesc("work-efficient scan with shared memory, non-power-of-two");
+    StreamCompaction::Efficient::scan(NPOT, c, a, true, false, true);
+    printElapsedTime(StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
+    printArray(NPOT, c, true);
+    printCmpResult(NPOT, b, c);
     
 
    

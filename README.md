@@ -13,6 +13,10 @@ CUDA Stream Compaction
 
 Thanks to [FLARE LAB](http://faculty.sist.shanghaitech.edu.cn/faculty/liuxp/flare/index.html) for this ferocious monster.
 
+##### Cmake change
+
+Add [csvfile.hpp]() to get the performance in CSV form. 
+
 ### Intro
 
 In this project, basically we implement parallel scan algorithm based on CUDA required by [instruction](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/INSTRUCTION.md). 
