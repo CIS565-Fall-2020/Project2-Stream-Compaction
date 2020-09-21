@@ -1,10 +1,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <thrust/device_vector.h>
 #include "common.h"
 #include "naive.h"
-#include "thrust.h"
-#include <iostream>
 
 #define blockSize 128
 
@@ -61,7 +58,7 @@ namespace StreamCompaction {
             std::swap(input_temp, input);
             // make ilog2ceil(n) kernel calls for scan
             for (int d = 1; d <= ilog2ceil(n); ++d) {
-                kernNaiveScan<<<fullBlocksPerGrid, blockSize>>>(n, d, input, input_temp, output);
+                kernNaiveScan <<< fullBlocksPerGrid, blockSize >> > (n, d, input, input_temp, output);
                 std::swap(input, input_temp);
             }
             timer().endGpuTimer();
