@@ -19,7 +19,12 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            // DONE. Simple for loop scan
+			odata[0] = 0;
+			for (int i = 1; i < n; ++i)
+			{
+				odata[i] = idata[i - 1] + odata[i - 1];
+			}
             timer().endCpuTimer();
         }
 
@@ -30,9 +35,18 @@ namespace StreamCompaction {
          */
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            // DONE
+			int outi = 0;
+			for (int i = 0; i < n; ++i)
+			{
+				if (idata[i] != 0)
+				{
+					odata[outi] = idata[i];
+					outi++;
+				}
+			}
             timer().endCpuTimer();
-            return -1;
+            return outi;
         }
 
         /**
@@ -41,10 +55,35 @@ namespace StreamCompaction {
          * @returns the number of elements remaining after compaction.
          */
         int compactWithScan(int n, int *odata, const int *idata) {
+			int *iMap = new int[n];
+			int *oMap = new int[n];
             timer().startCpuTimer();
-            // TODO
+            // DONE
+			// Map idata to an array with 0s and 1s
+			for (int i = 0; i < n; ++i)
+			{
+				iMap[i] = (idata[i] == 0) ? 0 : 1;
+			}
+			// Simple CPU scan
+			oMap[0] = 0;
+			for (int i = 1; i < n; ++i)
+			{
+				oMap[i] = iMap[i - 1] + oMap[i - 1];
+			}
+			// Scatter
+			int outi = 0;
+			for (int i = 0; i < n; ++i)
+			{
+				if (iMap[i] == 1)
+				{
+					odata[oMap[i]] = idata[i];
+					outi++;
+				}
+			}
             timer().endCpuTimer();
-            return -1;
+			delete[] iMap;
+			delete[] oMap;
+            return outi;
         }
     }
 }
