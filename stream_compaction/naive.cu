@@ -108,6 +108,11 @@ namespace StreamCompaction {
                 cudaMemcpy(odata, dev_arr1, n * sizeof(int), cudaMemcpyDeviceToHost);
             }
 
+            cudaFree(dev_arr1);
+            cudaFree(dev_arr2);
+
+            delete[] tmp;
+
         }
     }
 }

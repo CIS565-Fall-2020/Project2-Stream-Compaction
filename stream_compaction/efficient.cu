@@ -8,6 +8,13 @@
 namespace StreamCompaction {
     namespace Efficient {
         using StreamCompaction::Common::PerformanceTimer;
+        int* dev_extend;
+
+        int* dev_map;
+        int* dev_scan;
+        int* dev_scatter;
+        int* dev_data;
+
         PerformanceTimer& timer()
         {
             static PerformanceTimer timer;
@@ -15,35 +22,32 @@ namespace StreamCompaction {
         }
 
         __global__ void kernUpSweep(int n, int d, int* data) {
-            int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
-            int step = 1 << (d + 1);
-            int start = step - 1;
-            int index = thread * step + start;
-
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (index >= n) {
                 return;
             }
-            data[index] += data[index - step / 2];
+
+            int power = 1 << (d + 1);
+            int step = 1 << d;
+            if (index != 0 && (index + 1) % power == 0) {
+                data[index] += data[index - step];
+            }
         }
 
         __global__ void kernDownSweep(int n, int d, int* data) {
-            int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
-            int power1 = 1 << (d + 1);
-            int power2 = power1 >> 1;
-
-            thread = thread * power1;
-            if (thread >= n) {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index >= n) {
                 return;
             }
 
-            int right = thread + power1  - 1;
-            if (right >= n) {
-                return;
+            int power = 1 << (d + 1);
+            int step = power >> 1;
+
+            if (index != 0 && (index + 1) % power == 0) {
+                int t = data[index - step];
+                data[index - step] = data[index];
+                data[index] += t;
             }
-            int left = thread + power2 - 1;
-            int t = data[left];
-            data[left] = data[right];
-            data[right] += t;
         }
 
         __global__ void kernExtendArr(int extendNum, int n, int* idata, int* odata) {
@@ -69,14 +73,21 @@ namespace StreamCompaction {
             }
         }
 
+        __global__ void kernScatter(int n, int* idata, int* map, int* scan, int* odata) {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index >= n) {
+                return;
+            }
+            if (map[index] != 0) {
+                odata[scan[index]] = idata[index];
+            }
+        }
 
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
             // TODO
-            int* dev_extend;
-            int* dev_arr;
 
             dim3 threadsPerBlock(blockSize);
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
@@ -90,13 +101,13 @@ namespace StreamCompaction {
             cudaMalloc((void**)&dev_extend, num * sizeof(int));
             checkCUDAError("dev_arrr failed!");
 
-            cudaMalloc((void**)&dev_arr, n * sizeof(int));
+            cudaMalloc((void**)&dev_data, n * sizeof(int));
             checkCUDAError("dev_arrr failed!");
 
-            cudaMemcpy(dev_arr, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+            cudaMemcpy(dev_data, idata, n * sizeof(int), cudaMemcpyHostToDevice);
 
             timer().startGpuTimer();
-            kernExtendArr<<<fullBlocksPerGrid, threadsPerBlock>>>(num, n, dev_arr, dev_extend);
+            kernExtendArr<<<fullBlocksPerGrid, threadsPerBlock>>>(num, n, dev_data, dev_extend);
 
             for (int d = 0; d <= ceil; d++) {
                 kernUpSweep << <fullBlocksPerGrid, threadsPerBlock >> > (num, d, dev_extend);
@@ -142,7 +153,10 @@ namespace StreamCompaction {
             }
             */
             cudaFree(dev_extend);
-            cudaFree(dev_arr);
+            cudaFree(dev_data);
+
+            delete[] tmp;
+            delete[] extendData;
         }
 
         __global__ void kernMap(int n, int* idata, int* odata) {
@@ -153,15 +167,6 @@ namespace StreamCompaction {
             odata[index] = idata[index] == 0 ? 0 : 1;
         }
 
-        __global__ void kernScatter(int n, int* mapdata, int* scandata, int* idata, int* odata) {
-            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-            if (index >= n) {
-                return;
-            }
-            if (mapdata[index] != 0) {
-                odata[scandata[index]] = idata[index];
-            }
-        }
 
         /**
          * Performs stream compaction on idata, storing the result into odata.
@@ -173,42 +178,79 @@ namespace StreamCompaction {
          * @returns      The number of elements remaining after compaction.
          */
         int compact(int n, int *odata, const int *idata) {
-            int* dev_map;
-            int* dev_scan;
-            int* dev_scatter;
-            int* dev_data;
-            int* host_map = new int[n];
+
+
+            int ceil = ilog2ceil(n);
+            int num = 1 << ceil;
+
+            int* host_scan = new int[num];
+            int* tmp = new int[num];
 
             dim3 threadsPerBlock(blockSize);
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
 
-            cudaMalloc((void**)&dev_map, n * sizeof(int));
-            checkCUDAError("dev_arrr failed!");
+
+            cudaMalloc((void**)&dev_map, num * sizeof(int));
+            checkCUDAError("dev_map failed!");
 
 
-            cudaMalloc((void**)&dev_scan, n * sizeof(int));
-            checkCUDAError("dev_arrr failed!");
+            cudaMalloc((void**)&dev_scan, num * sizeof(int));
+            checkCUDAError("dev_scan failed!");
 
 
-            cudaMalloc((void**)&dev_scatter, n * sizeof(int));
-            checkCUDAError("dev_arrr failed!");
+            cudaMalloc((void**)&dev_scatter, num * sizeof(int));
+            checkCUDAError("dev_scatter failed!");
 
             cudaMalloc((void**)&dev_data, n * sizeof(int));
-            checkCUDAError("dev_arrr failed!");
+            checkCUDAError("dev_data failed!");
+
+            cudaMalloc((void**)&dev_extend, num * sizeof(int));
+            checkCUDAError("dev_extend failed!");
 
             cudaMemcpy(dev_data, idata, n * sizeof(int), cudaMemcpyHostToDevice);
 
             timer().startGpuTimer();
             // TODO
+            // Extend non-power of 2
+            kernExtendArr << <fullBlocksPerGrid, threadsPerBlock >> > (num, n, dev_data, dev_extend);
 
             // map
-            kernMap << <fullBlocksPerGrid, threadsPerBlock >> > (n, dev_data, dev_map);
+            kernMap << <fullBlocksPerGrid, threadsPerBlock >> > (num, dev_extend, dev_map);
+            cudaMemcpy(dev_scan, dev_map, num * sizeof(int), cudaMemcpyDeviceToDevice);
 
             // scan
+            for (int d = 0; d <= ceil; d++) {
+                kernUpSweep << <fullBlocksPerGrid, threadsPerBlock >> > (num, d, dev_scan);
+            }
 
+            kernSetValue << <fullBlocksPerGrid, threadsPerBlock >> > (num - 1, 0, dev_scan);
+
+
+            for (int d = ceil - 1; d >= 0; d--) {
+                kernDownSweep << <fullBlocksPerGrid, threadsPerBlock >> > (num, d, dev_scan);              
+            }
             // scatter
+            kernScatter << <fullBlocksPerGrid, threadsPerBlock >> > (num, dev_extend, dev_map, dev_scan, dev_scatter);
+
+            cudaMemcpy(odata, dev_scatter, n * sizeof(int), cudaMemcpyDeviceToHost);
+            cudaMemcpy(host_scan, dev_scan, num * sizeof(int), cudaMemcpyDeviceToHost);
+
             timer().endGpuTimer();
-            return -1;
+
+            cudaFree(dev_extend);
+            cudaFree(dev_data);
+            cudaFree(dev_map);
+            cudaFree(dev_scan);
+            cudaFree(dev_scatter);
+
+            int count = host_scan[n - 1];
+            if (1 << ceil != n) {
+                count = host_scan[n];
+            }
+            delete[] host_scan;
+            delete[] tmp;
+            
+            return count;
         }
     }
 }
