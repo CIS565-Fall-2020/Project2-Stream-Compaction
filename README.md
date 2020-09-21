@@ -87,7 +87,9 @@ The performance of the four scan functions is graphed below.
 
 ![](img/scan_perf.png)
 
-Initially, the GPU implementations of Scan seemed much slower than the CPU implementation, since they were tested on an array size of 256 and the CPU's base speed is extremely fast. However, once the array size was increased exponentially, the performance of both GPU implementations slowly approached the CPU one in numerical speed, even surpassing it for an array of 32,768. Indeed, the CPU's performance experiences a 38,932% speed decrease from an array of 256 to the array of 32,768, while the Naive GPU Scan experiences a 199% decrease and the Work-Efficient one experiences a 343% decrease respectively. On the graph, the CPU has a linear trajectory, while both the Naive and Work-Efficient Scans have a log(n) trajectory; if more array sizes were tested, this predicts that both GPU implementations will be faster than the CPU's, where the larger the array size, the more efficient the GPU implementations are.
+* Initially, the GPU implementations of Scan seemed much slower than the CPU implementation, since they were tested on an array size of 256 and the CPU's base speed is extremely fast. However, once the array size was increased exponentially, the performance of both GPU implementations slowly approached the CPU one in numerical speed, even surpassing it for an array of 131,072.
+* The CPU's performance experiences a **38,932%** speed decrease from an array of 256 to the array of 131,072, while the Naive GPU Scan experiences a **199%** decrease and the Work-Efficient one experiences a **343%** decrease respectively.
+* On the graph, the CPU has a linear trajectory, while both the Naive and Work-Efficient Scans have a log(n) trajectory; if more array sizes were tested, this predicts that both GPU implementations will be faster than the CPU's, where the larger the array size, the more efficient the GPU implementations are.
 
 Unfortunately, despite intentions and expectations, the Work-Efficient Scan is less efficient than the Naive Scan. It has a higher base speed, and the slope of its graph is higher than that of the Naive Scan's. The implementation of Work-Efficient Scan involves two `for` loops, one for the "up-sweep" of the initial array and one for the "down-sweep" on the result, and thus twice as many kernel calls. Commenting out one of these `for` loops causes Work-Efficient Scan to be slightly faster than Naive Scan (although wrong, of course), which implies that the presence of two `for` loops makes the implementation slow. I confirmed this when I looked at the kernels' runtime through the NSight Analysis interface:
 
@@ -103,10 +105,17 @@ The performance of the three compact functions is graphed below.
 
 ![](img/compact_perf.png)
 
+These results align with the observations found in the Scan part of this project.
+
+* As with the Scan implementations, the GPU implementation at array size 256 is slower than the CPU implementation, but proves to be more efficient as the array size increases, performing faster than both CPU implementations with an array size of 131,072.
+* During Compact without Scan on an array of 131,072 the CPU experiences a **45,400%** decrease in performance compared to its speed at array size 256, while Compact with Scan performs at **24539%** worse than its base speed. This contrasts the **124%** change in performance observed in the Work-Efficient Compact function.
+* Aside from the fluctuation in the graph, the function of the Work-Efficient Compact follows a log(n) trajectory with a very small slope. This contrasts the linear trajectories of both CPU implementations, in a way that is similarly demnonstrated in Scan.
+
+As a whole, even though the base speeds of these work-efficient algorithms are high, they diverge less rapidly from these speeds than their CPU counterparts and outperform them when applied to larger sets of data.
 
 ## Outliers
 
-Thereurst Scan and work-efficient scan fluctuates on non power of two arrays. for insance, 1024 array size block size 128, Thrust 0.231424	 <- non power of two case and 32768 for power of two case (bt fluctuations same magnitude, interestingly enough). 0.240832 also weird spike in work-efficient compact, 0.38688 at 16384 for power of two and  0.81392 at 32768
+While I was collecting data, I observed some abnormal values throughout the program that appeared and disappeared with program refreshes. For some sizes of the randomly-generated array, the algorithms produce fluctuating values that interfere with the expected trajectory of data from their functions. A notable example happens with the cases of Thrust Scan: when I tested an array size of 1021 with block size 128 during my implementation process, the Thrust Scan showed a value of 0.231424, five times slower than its expected average speed. It showed something similar at array size 32,768, spiking again to some value between 0.20 and 0.25ms, equivalent in magnitude to the other lag spike. There was also some interference with the Work-Efficient Scan and Compact algorithms, especially the Work_Efficient Contact. The most out-of-place value I observed was a performance of 0.81392 ms at array size 32,768. Though this instability explains the fluctuation in the slopes of their graphs, I cannot think of an explanation for why this happens, because the size of the array stays constant (and subsequent trials will show expected results). 
 
 ## Block Size Optimization
 
