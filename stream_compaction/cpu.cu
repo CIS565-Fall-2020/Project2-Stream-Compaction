@@ -32,6 +32,7 @@ namespace StreamCompaction {
 
             odata[0] = 0;
             for (int i = 1; i < n; i++) {
+                //odata[i] += idata[i - 1];
                 prefix_sum += idata[i - 1];
                 odata[i] = prefix_sum;
             }

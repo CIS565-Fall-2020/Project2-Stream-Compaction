@@ -21,5 +21,7 @@ In this project, basically we implement parallel scan algorithm based on CUDA re
 
 #### Part 5: why GPU version so slow
 
+The reason why the 
 
+1. memory bandwidth: the current version fetches memory uncontinuously, which leads to a low memory bandwidth.  
 

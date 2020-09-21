@@ -12,8 +12,9 @@
 #include <stream_compaction/efficient.h>
 #include <stream_compaction/thrust.h>
 #include "testing_helpers.hpp"
+#include "csvfile.hpp"
 
-const int SIZE = 1 << 4; // feel free to change the size of array
+const int SIZE = 1 << 24; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
 int *b = new int[SIZE];
@@ -35,6 +36,7 @@ int main(int argc, char* argv[]) {
     // initialize b using StreamCompaction::CPU::scan you implement
     // We use b for further comparison. Make sure your StreamCompaction::CPU::scan is correct.
     // At first all cases passed because b && c are all zeroes.
+    
     zeroArray(SIZE, b);
     printDesc("cpu scan, power-of-two");
     StreamCompaction::CPU::scan(SIZE, b, a);
@@ -47,6 +49,19 @@ int main(int argc, char* argv[]) {
     printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
     printArray(NPOT, b, true);
     printCmpResult(NPOT, b, c);
+    
+    zeroArray(SIZE, c);
+    printDesc("cpu scan, non-power-of-two");
+    StreamCompaction::CPU::scan(NPOT, c, a);
+    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
+    printArray(NPOT, b, true);
+    printCmpResult(NPOT, b, c);
+
+    zeroArray(SIZE, b);
+    printDesc("cpu scan, power-of-two");
+    StreamCompaction::CPU::scan(SIZE, b, a);
+    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
+    printArray(SIZE, b, true);
 
     zeroArray(SIZE, c);
     printDesc("naive scan, power-of-two");
@@ -152,4 +167,24 @@ int main(int argc, char* argv[]) {
     delete[] a;
     delete[] b;
     delete[] c;
+    // save to csv
+    try
+    {
+        csvfile csv("MyTable.csv"); // throws exceptions!
+        // Hearer
+        csv << "X" << "VALUE" << endrow;
+        // Data
+        int i = 1;
+        csv << i++ << "String value" << endrow;
+        csv << i++ << 123 << endrow;
+        csv << i++ << 1.f << endrow;
+        csv << i++ << 1.2 << endrow;
+        csv << i++ << "One more string" << endrow;
+        csv << i++ << "\"Escaped\"" << endrow;
+        csv << i++ << "=HYPERLINK(\"https://playkey.net\"; \"Playkey Service\")" << endrow;
+    }
+    catch (const std::exception& ex)
+    {
+        std::cout << "Exception was thrown: " << ex.what() << std::endl;
+    }
 }
