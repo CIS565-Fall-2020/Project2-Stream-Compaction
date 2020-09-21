@@ -117,7 +117,7 @@ namespace StreamCompaction {
             dev_idata[k - d_2] = shared[2 * t_id];
         }
 
-        __global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int cur_depth, int target_depth, int* dev_idata) {
+        __global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int* dev_idata) {
             int t_offset = blockIdx.x * blockDim.x;
             int t_id = threadIdx.x;
             int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
@@ -130,19 +130,10 @@ namespace StreamCompaction {
             shared[2 * t_id + 1] = dev_idata[k];
             __syncthreads();
 
-            for (int i = cur_depth - 1; i >= target_depth; i--) {
-                int mul = 1 << (i + 1);
-                int idx_a = mul * (t_id + 1) - 1;
-                int idx_b = mul * (t_id + 1) - mul / 2 - 1;
-                if (idx_a < 2 * blockDim.x) {
-                    int a  = shared[idx_a];
-                    int b = shared[idx_b];
-                    int tmp = shared[idx_b];
-                    shared[idx_b] = shared[idx_a];
-                    shared[idx_a] += tmp;
-                }
-                __syncthreads();
-            }
+            int tmp = shared[2 * t_id];
+            shared[2 * t_id] = shared[2 * t_id + 1];
+            shared[2 * t_id + 1] += tmp;
+            __syncthreads();
 
             dev_idata[k - d_2] = shared[2 * t_id];
             dev_idata[k] = shared[2 * t_id + 1];
@@ -175,7 +166,7 @@ namespace StreamCompaction {
             // TODO
             if (ifSharedMemory) {
                 int unroll_depth = ilog2ceil(efficient_blocksize);
-                // for each upsweep, scan a 2 * blocksize 
+                
                 for (int cur_depth = 0; cur_depth < log_n; cur_depth += unroll_depth) {
                     int d = cur_depth;
                     blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
@@ -202,35 +193,19 @@ namespace StreamCompaction {
 
             kernUpdateArray << <1, 1 >> > (n_2 - 1, 0, dev_idata);
 
-            if (!ifSharedMemory) {
-                for (int d = log_n - 1; d >= 0; d--) {
-                    if (ifIdxScale) {
-                        blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
-                        kernDownSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-                    }
-                    /*else if (ifSharedMemory) {
-                        blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
-                        kernSharedMemoryDownSweepStep << <blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >> > (n_2, 1 << d, dev_idata);
-                    }*/
-                    else {
-                        kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-                    }
+            for (int d = log_n - 1; d >= 0; d--) {
+                if (ifIdxScale) {
+                    blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                    kernDownSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                }
+                else if (ifSharedMemory) {
+                    blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                    kernSharedMemoryDownSweepStep << <blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >> > (n_2, 1 << d, dev_idata);
+                }
+                else {
+                    kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
                 }
             }
-            else {
-                int unroll_depth = ilog2ceil(efficient_blocksize);
-                for (int cur_depth = log_n; cur_depth >= 0; cur_depth -= unroll_depth) {
-                    
-                    
-                    int target_depth = std::max(cur_depth - unroll_depth, 0);
-                    int d = target_depth;
-                    //blocksPerGrid = (n_2 / (1 << d) + efficient_blocksize - 1) / efficient_blocksize;
-                    // cur_depth should not be covered
-                    kernSharedMemoryDownSweepStep << <blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >> > (n_2, 1 << d, cur_depth, target_depth, dev_idata);
-                }
-            }
-
-            
             
             
             
