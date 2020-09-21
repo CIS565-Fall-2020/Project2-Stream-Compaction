@@ -85,7 +85,7 @@ namespace StreamCompaction {
 #pragma endregion
 
 #pragma region SharedMemory
-        __global__ void kernSharedMemoryUpSweepStep(int N, int d_2, int* dev_idata) {
+        __global__ void kernSharedMemoryUpSweepStep(int N, int d_2, int cur_depth, int target_depth, int* dev_idata) {
             int t_offset = blockIdx.x * blockDim.x;
             int t_id = threadIdx.x;
             int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
@@ -98,16 +98,23 @@ namespace StreamCompaction {
             shared[2 * t_id + 1] = dev_idata[k];
             __syncthreads();
 
-            shared[2 * t_id + 1] += shared[2 * t_id];
+            /*shared[2 * t_id + 1] += shared[2 * t_id];*/
             
-            /*for (int i = 1; i <= unroll_depth; i++) {
+            for (int i = 0; i < target_depth - cur_depth; i++) {
                 int mul = 1 << (i + 1);
-                shared[mul * (t_id + 1) - 1] += shared[mul * (t_id + 1) - mul >> 1 - 1];
+                int idx_a = mul * (t_id + 1) - 1;
+                int idx_b = mul * (t_id + 1) - mul / 2 - 1;
+                if (idx_a < 2 * blockDim.x) {
+                    int a = shared[idx_a];
+                    int b = shared[idx_b];
+                    shared[idx_a] += shared[idx_b];
+                }
                 __syncthreads();
-            }*/
+            }
             
 
             dev_idata[k] = shared[2 * t_id + 1];
+            dev_idata[k - d_2] = shared[2 * t_id];
         }
 
         __global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int* dev_idata) {
@@ -157,27 +164,34 @@ namespace StreamCompaction {
             }
             
             // TODO
-            
-            for (int d = 0; d <= log_n - 1; d++) {
-                if (ifIdxScale) {
-                    blocksPerGrid = (n_2 / (1 << (1 + d))  + efficient_blocksize - 1) / efficient_blocksize;
-                    kernUpSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-                }
-                else if (ifSharedMemory) {
+            if (ifSharedMemory) {
+                int unroll_depth = ilog2ceil(efficient_blocksize);
+                
+                for (int cur_depth = 0; cur_depth < log_n; cur_depth += unroll_depth) {
+                    int d = cur_depth;
                     blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
-                    kernSharedMemoryUpSweepStep <<<blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >>> (n_2, 1 << d, dev_idata);
+                    int target_depth = std::min(cur_depth + unroll_depth, log_n); // log_n exclusive
+                    kernSharedMemoryUpSweepStep << <blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >> > (n_2, 1 << d, cur_depth, target_depth, dev_idata);
                 }
-                else{
-                    kernUpSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
-                }
-
-                    
             }
+            else {
+                for (int d = 0; d <= log_n - 1; d++) {
+                    if (ifIdxScale) {
+                        blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                        kernUpSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    }
+                    /*else if (ifSharedMemory) {
+                        blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                        kernSharedMemoryUpSweepStep <<<blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >>> (n_2, 1 << d, dev_idata);
+                    }*/
+                    else {
+                        kernUpSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    }
+                }
+            }
+            
 
-            //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
             kernUpdateArray << <1, 1 >> > (n_2 - 1, 0, dev_idata);
-            //cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);
-
 
             for (int d = log_n - 1; d >= 0; d--) {
                 if (ifIdxScale) {

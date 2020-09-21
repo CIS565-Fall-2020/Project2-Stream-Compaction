@@ -14,7 +14,7 @@
 #include "testing_helpers.hpp"
 #include "csvfile.hpp"
 
-const int power = 19;
+const int power =16;
 const int SIZE = 1 << power; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
