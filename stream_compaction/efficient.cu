@@ -135,6 +135,8 @@ namespace StreamCompaction {
                 int idx_a = mul * (t_id + 1) - 1;
                 int idx_b = mul * (t_id + 1) - mul / 2 - 1;
                 if (idx_a < 2 * blockDim.x) {
+                    int a  = shared[idx_a];
+                    int b = shared[idx_b];
                     int tmp = shared[idx_b];
                     shared[idx_b] = shared[idx_a];
                     shared[idx_a] += tmp;
