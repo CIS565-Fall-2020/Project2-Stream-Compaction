@@ -20,6 +20,11 @@ namespace StreamCompaction {
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            odata[0] = 0;
+            for (int k = 1; k < n; ++k)
+            {
+                odata[k] = odata[k - 1] + idata[k - 1];
+            }
             timer().endCpuTimer();
         }
 
@@ -31,8 +36,15 @@ namespace StreamCompaction {
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            int o_idx = 0;
+            for (int i_idx = 0; i_idx < n; ++i_idx) {
+                if (idata[i_idx] != 0) {
+                    odata[o_idx] = idata[i_idx];
+                    ++o_idx;
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+            return o_idx;
         }
 
         /**
@@ -43,8 +55,35 @@ namespace StreamCompaction {
         int compactWithScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            int* temp_array = new int[n];
+            int* scan_array = new int[n];
+            // Compute temporary array:
+            for (int i_idx = 0; i_idx < n; ++i_idx) {
+                if (idata[i_idx] != 0) {
+                    temp_array[i_idx] = 1;
+                }
+                else {
+                    temp_array[i_idx] = 0;
+                }
+            }
+            // Exclusive scan:
+            scan_array[0] = 0;
+            for (int k = 1; k < n; ++k)
+            {
+                scan_array[k] = scan_array[k - 1] + temp_array[k - 1];
+            }
+            // Scatter:
+            int o_counter = 0;
+            for (int i_idx = 0; i_idx < n; ++i_idx) 
+            {
+                if (temp_array[i_idx] == 1) {
+                    int o_idx = scan_array[i_idx];
+                    odata[o_idx] = idata[i_idx];
+                    ++o_counter;
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+            return o_counter;
         }
     }
 }
