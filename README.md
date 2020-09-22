@@ -55,14 +55,14 @@ I also measured the performances with very large input sizes (greater than 1 mil
 Method | CPU | Naive | Work Efficient | Thrust
 :---: | :---: | :---: | :---: | :---:
 Array size = 2^20 | 5.2834 ms | 1.813 ms | 1.628 ms | 0.26 ms
-Array size = 2^15 | 152.3 ms | 75.14 ms | 50 ms | 2.18 ms
+Array size = 2^25 | 152.3 ms | 75.14 ms | 50 ms | 2.18 ms
 
 **Array Size versus Stream Compaction Measured Performance**
 
 Method | CPU (with scan) | Work Efficient
 :---: | :---: | :---:
 Array size = 2^20 | 8.75 ms | 1.85 ms
-Array size = 2^15 | 256.065 ms | 53.5 ms
+Array size = 2^25 | 256.065 ms | 53.5 ms
 
 CPU implementations works the fastest with small inputs, however their runtimes scales up very quickly once the input size gets closer to 1 million. We don't observe the work-efficient and Thrust scan implementations to be faster than naive implementation until we hit much larger input sizes where we benefit more from parallelism. Although the work-efficient approach runs significantly faster than the naive approach once the 1 million mark is hit, it still gets inefficient very quickly while the thrust implementation remains significantly fast in comparison. This could be due to a bottleneck in work-efficient implementation memory I/O which could be resolved by using shared instead of global memory.
 
