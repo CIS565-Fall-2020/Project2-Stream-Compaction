@@ -16,27 +16,16 @@ namespace StreamCompaction {
         int* dev_bufferB;
         int numObjects;
         
-        __global__ void kernNaiveScan(int N, int* A, int* B, int d) {
+        __global__ void kernNaiveScan(int N, int* A, int* B, int temp) {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (index >= N) {
                 return;
             }
-            int temp = powf(2, d - 1);
             if (index < temp) {
-                if (d % 2 == 0) {
-                    B[index] = A[index];
-                }
-                else {
-                    A[index] = B[index];
-                }
+                A[index] = B[index];
                 return;
             }
-            if (d % 2 == 0) {
-                B[index] = A[index - temp] + A[index];
-            }
-            else {
-                A[index] = B[index - temp] + B[index];
-            }
+            A[index] = B[index - temp] + B[index];
         }
 
         void initSimulation(int N, const int* B) {
@@ -63,18 +52,14 @@ namespace StreamCompaction {
             timer().startGpuTimer();
 
             for (int i = 1; i <= dmax; i++) {
-                kernNaiveScan << <numBoidBlocks, blockSize >> > (n, dev_bufferA, dev_bufferB, i);
-                
+                kernNaiveScan << <numBoidBlocks, blockSize >> > (n, dev_bufferA, dev_bufferB, int(powf(2, i - 1)));
+                std::swap(dev_bufferA, dev_bufferB);
             }
 
             timer().endGpuTimer();
 
-            if (dmax % 2 == 0) {
-                cudaMemcpy(odata + 1, dev_bufferB, (n - 1) * sizeof(int), cudaMemcpyDeviceToHost);
-            }
-            else {
-                cudaMemcpy(odata + 1, dev_bufferA, (n - 1) * sizeof(int), cudaMemcpyDeviceToHost);
-            }
+            cudaMemcpy(odata + 1, dev_bufferB, (n - 1) * sizeof(int), cudaMemcpyDeviceToHost);
+
             odata[0] = 0;
             endSimulation();
         }

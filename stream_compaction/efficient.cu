@@ -23,7 +23,6 @@ namespace StreamCompaction {
             if (index >= N) {
                 return;
             }
-            //int offset = powf(2, d);
             if (index % (offset * 2) == 0) {
                 data[index + offset * 2 - 1] += data[index + offset - 1];
             }
@@ -34,7 +33,6 @@ namespace StreamCompaction {
             if (index >= N) {
                 return;
             }
-            //int offset = powf(2, d);
             if (index % (offset * 2) == 0) {
                 int t = data[index + offset - 1];
                 data[index + offset - 1] = data[index + offset * 2 - 1];
@@ -52,14 +50,15 @@ namespace StreamCompaction {
             cudaMalloc((void**)&dev_buffer, numObjects * sizeof(int));
             cudaMemcpy(dev_buffer, idata, n * sizeof(int), cudaMemcpyHostToDevice);
 
-            const int blockSize = 256;
+            const int blockSize = 512;
             dim3 numBlocks((numObjects + blockSize - 1) / blockSize);
-            
+
             timer().startGpuTimer();
 
             for (int i = 0; i < dmax; i++) {
                 kernUpSweep << <numBlocks, blockSize >> > (numObjects, int(powf(2, i)), dev_buffer);
             }
+
             cudaMemset(dev_buffer + numObjects - 1, 0, sizeof(int));
             for (int i = dmax - 1; i >= 0; i--) {
                 kernDownSweep << <numBlocks, blockSize >> > (numObjects, int(powf(2, i)), dev_buffer);
@@ -92,7 +91,7 @@ namespace StreamCompaction {
 
             cudaMemcpy(dev_idata, idata, n * sizeof(int), cudaMemcpyHostToDevice);
             
-            const int blockSize = 64;
+            const int blockSize = 512;
 
             dim3 numBlocks((n + blockSize - 1) / blockSize);
 
