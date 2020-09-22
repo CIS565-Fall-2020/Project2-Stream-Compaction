@@ -25,7 +25,7 @@ GPU : NVIDIA GeForce RTX 2060
 
 * STREAM COMPACTION 
 
-![Stream Compaction output](img/sc.png)
+![Stream Compaction output](img/scres.png)
 
 # PROJECT OVERVIEW 
 
@@ -56,19 +56,50 @@ References
 The GPU stream compaction implementation lives inside of the
 `stream_compaction` subproject. .
 
-## GPU Gem 3 Ch 39 Patch
 
-* Example 1
-![](img/example-1.png)
+## SCAN : 
+This is also called All Prefix Sum. 
 
-* Example 2
-![](img/example-2.jpg)
+![All prefix sums](img/allprefixsums.png)
 
-* Figure-39-4
-![](img/figure-39-4.jpg)
+There are 2 types of scans : 
 
-* Figure-39-2. This image shows an naive inclusive scan. We should convert this to an exclusive one for compaction.
-![](img/figure-39-2.jpg)
+* Exclusive scan : Elem j of the result does not include elem j of input. 
+
+* Inclusive Scan : All elements including j are summed up and output in the j element. 
+
+![Exclusive and Inclusive Scans](img/exandinc.png)
+
+### Ways to implement scan 
+
+* Naive Parallel Scan :In this, each thread writes one sum and reads two values 
+
+![Naive Scan](img/naive.png)
+
+* Work Efficient Parallel Scan : This scan uses a balanced binary tree concept. 
+
+![Work Efficient Scan](img/wescan.png)
+
+There are 2 phases in this scan. 
+
+* Upsweep : This phase is similar to parallel reduction. The sum of all elements is stored in the last element. 
+
+![Upsweep](img/upsweep.png)
+
+* Downsweep : Traverse back down the tree using partial sums. 
+
+![Downsweep](img/downsweep.png)
+
+## STREAM COMPACTION: 
+Given an array, create a new array of elements that meet a certain criteria. There are 3 steps in this process: 
+
+* 1) Compute a temporary array with 0s and 1s based on the given condition. 
+
+* 2) Run and exclusive scan on this temporary array. 
+
+* 3) Scatter the elements. Use the result of scan as an index to write to the final output array if the value for that element is 1 in the temporary array. 
+
+![SC](img/sc.png)
 
 ## Algorithm Examples
 
