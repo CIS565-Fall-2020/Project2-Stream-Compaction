@@ -27,7 +27,7 @@ The main focus of this project is implementing GPU stream compaction and other p
 
 Both CPU and GPU timing functions are warapped up as a performance timer class in order to measure the time cost conveniently. We use *std::chrono* to provide CPU high-precision timing and CUDA event to measure the CUDA performance. In order to measure the performance of the implementation itself, I **have not** included the cost of initial and final memory operations on the GPU such as cudaMalloc() or cudaMemcpy() while timing the runtime.
 
-As the first step of the performance analysis, let's compare the performance of different scan implementations. In order to achieve this, I passed different block sizes to be used on the GPU while keeping the input size constant. I defined one input array with randomly generated integers except I read two different amounts of items: 2^20 (thus an exact power of 2) and 2^20 - 3 (thus 3 integers less). I will refer to the first size as **POT (Power Of Two)** and the second size as **NPOT (Non-Power Of Two)** for the rest of the analysis.
+As the first step of the performance analysis, let's compare the performance of different scan implementations. In order to achieve this, I passed different block sizes to be used on the GPU while keeping the input size constant. I defined one input array with randomly generated integers except I read two different amounts of items: 2^20 (thus an exact power of 2) and 2^20 - 3 (thus 3 integers less). I will refer to the first size as **POT (Power Of Two)** and the second size as **NPOT (Non-Power Of Two)**.
 
 ![Block size versus Runtime](img/optimal_blocksize.png)
 *Timed performances of CPU, GPU naive, GPU work-efficient & GPU thrust scan functions with different block sizes*
@@ -38,17 +38,33 @@ Using a block size of 32 makes the naive and work efficient GPU scan functions s
 
 The GPU thrust scan performs the fastest by a significant difference with very little fluctuation between different block sizes. It's possible that thrust scan could be using some methods to reduce memory latency. Increasing the block size doesn't seem to have a notable impact on thrust scan performance, in fact it can sometimes result in a very slightly less efficient result with POT inputs.
 
-As the next step of the analysis, I measured the performance of all the scan implementations with different input sizes while maintaining the block size at 128. I split the data into two categories: POT and NPOT.
+As the next step of the analysis, I measured the performance of all the scan and stream compaction implementations with different input sizes while maintaining the block size at 128.
 
-**Array Size (POT) versus Measured Performance**
+**Array Size versus Scan Measured Performance**
 
-![Array size vs Performance](img/arraysizePOT2.png)
+![Array size vs Scan Performance](img/scangraph.png)
 
-**Array Size (NPOT) versus Measured Performance**
+**Array Size versus Stream Compaction Measured Performance**
 
-![Array size vs Performance](img/arraysizeNPOT.png)
+![Array size vs Compaction Performance](img/compactiongraph.png)
 
-CPU implementation works the fastest with small inputs, however its runtime scales up very quickly once the input size gets closer to 1 million. The CPU scan is facing the same phenomenon between POT and NPOT inputs as the previous section. We don't observe the work-efficient and Thrust scan implementations to be faster than naive implementation until we hit much larger input sizes where we benefit more from parallelism. Although the work-efficient approach runs significantly faster than the naive approach once the 1 million mark is hit, it still gets inefficient very quickly while the thrust implementation remains significantly fast in comparison. This could be due to a bottleneck in work-efficient implementation memory I/O which could be resolved by using shared instead of global memory.
+I also measured the performances with very large input sizes (greater than 1 million). Since it is difficult to represent this data with a graph, I have included a table below for both scan and stream compaction performances.
+
+**Array Size versus Scan Measured Performance**
+
+Method | CPU | Naive | Work Efficient | Thrust
+:---: | :---: | :---: | :---: | :---:
+Array size = 2^20 | 5.2834 ms | 1.813 ms | 1.628 ms | 0.26 ms
+Array size = 2^15 | 152.3 ms | 75.14 ms | 50 ms | 2.18 ms
+
+**Array Size versus Stream Compaction Measured Performance**
+
+Method | CPU (with scan) | Work Efficient
+:---: | :---: | :---:
+Array size = 2^20 | 8.75 ms | 1.85 ms
+Array size = 2^15 | 256.065 ms | 53.5 ms
+
+CPU implementations works the fastest with small inputs, however their runtimes scales up very quickly once the input size gets closer to 1 million. We don't observe the work-efficient and Thrust scan implementations to be faster than naive implementation until we hit much larger input sizes where we benefit more from parallelism. Although the work-efficient approach runs significantly faster than the naive approach once the 1 million mark is hit, it still gets inefficient very quickly while the thrust implementation remains significantly fast in comparison. This could be due to a bottleneck in work-efficient implementation memory I/O which could be resolved by using shared instead of global memory.
 
 To provide an insight on how the performance is measured, I included a sample performance test outputs below. These tests use a block size of 128 and input size of 2^18.
 
