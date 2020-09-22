@@ -13,10 +13,8 @@ The main focus of this project is implementing GPU stream compaction and other p
 
 **Performance Analysis**
 
-(Insert a screenshot of console here)
-*Screenshot of the console with runtime values for different CPU and GPU scan implementations with randomly generated input array size and thread block size set to 256*
+Both CPU and GPU timing functions are warapped up as a performance timer class in order to measure the time cost conveniently. We use *std::chrono* to provide CPU high-precision timing and CUDA event to measure the CUDA performance. In order to measure the performance of the implementation itself, I **have not** included the cost of initial and final memory operations on the GPU such as cudaMalloc() or cudaMemcpy().
 
-For the performance analysis
 ```****************
 ** SCAN TESTS **
 ****************
