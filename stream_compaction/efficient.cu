@@ -59,7 +59,8 @@ namespace StreamCompaction {
             int d_2,
             int* d_data
         ) {
-            int k = 2 * d_2 * ( (blockIdx.x * blockDim.x) + threadIdx.x) + 2 * d_2 - 1;
+            // use size_t in case overflow
+            size_t k = 2 * d_2 * ( (blockIdx.x * blockDim.x) + threadIdx.x) + 2 * d_2 - 1;
             /*k *= 2 * d_2;
             k += 2 * d_2 - 1;*/
             if (k >= N) {
@@ -73,7 +74,7 @@ namespace StreamCompaction {
             int d_2,
             int* d_data
         ) {
-            int k = 2 * d_2 * ((blockIdx.x * blockDim.x) + threadIdx.x) + 2 * d_2 - 1;
+            size_t k = 2 * d_2 * ((blockIdx.x * blockDim.x) + threadIdx.x) + 2 * d_2 - 1;
             if (k >= N) {
                 return;
             }
@@ -86,9 +87,9 @@ namespace StreamCompaction {
 
 #pragma region SharedMemory
         __global__ void kernSharedMemoryUpSweepStep(int N, int d_2, int cur_depth, int target_depth, int* dev_idata) {
-            int t_offset = blockIdx.x * blockDim.x;
-            int t_id = threadIdx.x;
-            int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
+            size_t t_offset = blockIdx.x * blockDim.x;
+            size_t t_id = threadIdx.x;
+            size_t k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
             if (k >= N) {
                 return;
             }
@@ -105,8 +106,8 @@ namespace StreamCompaction {
                 int idx_a = mul * (t_id + 1) - 1;
                 int idx_b = mul * (t_id + 1) - mul / 2 - 1;
                 if (idx_a < 2 * blockDim.x) {
-                    int a = shared[idx_a];
-                    int b = shared[idx_b];
+                    /*int a = shared[idx_a];
+                    int b = shared[idx_b];*/
                     shared[idx_a] += shared[idx_b];
                 }
                 __syncthreads();
@@ -117,32 +118,10 @@ namespace StreamCompaction {
             dev_idata[k - d_2] = shared[2 * t_id];
         }
 
-        /*__global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int* dev_idata) {
-            int t_offset = blockIdx.x * blockDim.x;
-            int t_id = threadIdx.x;
-            int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
-            if (k >= N) {
-                return;
-            }
-
-            extern __shared__ float shared[];
-            shared[2 * t_id] = dev_idata[k - d_2];
-            shared[2 * t_id + 1] = dev_idata[k];
-            __syncthreads();
-
-            int tmp = shared[2 * t_id];
-            shared[2 * t_id] = shared[2 * t_id + 1];
-            shared[2 * t_id + 1] += tmp;
-            __syncthreads();
-
-            dev_idata[k - d_2] = shared[2 * t_id];
-            dev_idata[k] = shared[2 * t_id + 1];
-        }*/
-
         __global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int cur_depth, int target_depth, int* dev_idata) {
-            int t_offset = blockIdx.x * blockDim.x;
-            int t_id = threadIdx.x;
-            int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
+            size_t t_offset = blockIdx.x * blockDim.x;
+            size_t t_id = threadIdx.x;
+            size_t k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
             if (k >= N) {
                 return;
             }
