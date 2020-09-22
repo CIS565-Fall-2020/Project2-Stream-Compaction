@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-constexpr int efficient_blocksize = 128;
+constexpr int efficient_blocksize = 256;
 
 namespace StreamCompaction {
     namespace Efficient {

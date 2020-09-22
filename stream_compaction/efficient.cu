@@ -117,7 +117,7 @@ namespace StreamCompaction {
             dev_idata[k - d_2] = shared[2 * t_id];
         }
 
-        __global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int* dev_idata) {
+        /*__global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int* dev_idata) {
             int t_offset = blockIdx.x * blockDim.x;
             int t_id = threadIdx.x;
             int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
@@ -137,9 +137,9 @@ namespace StreamCompaction {
 
             dev_idata[k - d_2] = shared[2 * t_id];
             dev_idata[k] = shared[2 * t_id + 1];
-        }
+        }*/
 
-        /*__global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int cur_depth, int target_depth, int* dev_idata) {
+        __global__ void kernSharedMemoryDownSweepStep(int N, int d_2, int cur_depth, int target_depth, int* dev_idata) {
             int t_offset = blockIdx.x * blockDim.x;
             int t_id = threadIdx.x;
             int k = 2 * d_2 * (t_offset + t_id) + 2 * d_2 - 1;
@@ -152,13 +152,13 @@ namespace StreamCompaction {
             shared[2 * t_id + 1] = dev_idata[k];
             __syncthreads();
 
-            for (int i = cur_depth - 1; i >= target_depth; i--) {
+            for (int i = cur_depth - 1 - target_depth; i >= 0; i--) {
                 int mul = 1 << (i + 1);
                 int idx_a = mul * (t_id + 1) - 1;
                 int idx_b = mul * (t_id + 1) - mul / 2 - 1;
                 if (idx_a < 2 * blockDim.x) {
-                    int a = shared[idx_a];
-                    int b = shared[idx_b];
+                    /*int a = shared[idx_a];
+                    int b = shared[idx_b];*/
                     int tmp = shared[idx_b];
                     shared[idx_b] = shared[idx_a];
                     shared[idx_a] += tmp;
@@ -168,7 +168,7 @@ namespace StreamCompaction {
 
             dev_idata[k - d_2] = shared[2 * t_id];
             dev_idata[k] = shared[2 * t_id + 1];
-        }*/
+        }
  #pragma endregion
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
@@ -224,23 +224,31 @@ namespace StreamCompaction {
 
             kernUpdateArray << <1, 1 >> > (n_2 - 1, 0, dev_idata);
 
-            for (int d = log_n - 1; d >= 0; d--) {
-                if (ifIdxScale) {
+            if (ifSharedMemory) {
+                int unroll_depth = ilog2ceil(efficient_blocksize);
+                for (int cur_depth = log_n; cur_depth > 0; cur_depth -= unroll_depth) {
+                    int target_depth = std::max(0, cur_depth - unroll_depth);
+                    int d = target_depth;
                     blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
-                    kernDownSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    kernSharedMemoryDownSweepStep << <blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >> > (n_2, 1 << d, cur_depth, target_depth, dev_idata);
                 }
-                else if (ifSharedMemory) {
-                    blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
-                    kernSharedMemoryDownSweepStep << <blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >> > (n_2, 1 << d, dev_idata);
-                }
-                else {
-                    kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+            }
+            else {
+                for (int d = log_n - 1; d >= 0; d--) {
+                    if (ifIdxScale) {
+                        blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                        kernDownSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    }
+                    /*else if (ifSharedMemory) {
+                        blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
+                        kernSharedMemoryDownSweepStep << <blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >> > (n_2, 1 << d, dev_idata);
+                    }*/
+                    else {
+                        kernDownSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
+                    }
                 }
             }
             
-            
-            
-
             if (ifTimer) {
                 timer().endGpuTimer();
             }
