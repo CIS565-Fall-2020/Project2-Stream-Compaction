@@ -42,7 +42,7 @@ As the next step of the analysis, I measured the performance of all the scan imp
 
 **Array Size (POT) versus Measured Performance**
 
-![Array size vs Performance](img/arraysizePOT.png)
+![Array size vs Performance](img/arraysizePOT2.png)
 
 **Array Size (NPOT) versus Measured Performance**
 
