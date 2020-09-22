@@ -10,4 +10,11 @@ namespace StreamCompaction {
 
         int compact(int n, int *odata, const int *idata);
     }
+
+    namespace Radix {
+        StreamCompaction::Common::PerformanceTimer& timer();
+
+        void radixSort(int n, int* odata, const int* idata);
+    }
+    
 }

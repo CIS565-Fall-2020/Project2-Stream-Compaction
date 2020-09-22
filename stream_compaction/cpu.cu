@@ -19,7 +19,16 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            for (int i = 0; i < n; i++) {
+                odata[i] = idata[i];
+            }
+
+            // exclusive scan
+            odata[0] = 0;
+
+            for (int i = 0; i < n - 1; i++) {
+                odata[i + 1] = odata[i] + idata[i];
+            }
             timer().endCpuTimer();
         }
 
@@ -30,9 +39,19 @@ namespace StreamCompaction {
          */
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            const int size = n;
+            // Map to temp array
+
+            int oIndex = 0;
+            for (int i = 0; i < n; i++) {
+                if (idata[i] != 0) {
+                    odata[oIndex] = idata[i];
+                    oIndex++;
+                }
+            }
+
             timer().endCpuTimer();
-            return -1;
+            return oIndex;
         }
 
         /**
@@ -42,9 +61,35 @@ namespace StreamCompaction {
          */
         int compactWithScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            const int size = n;
+
+            // Map to temp array
+            int* tempArray = new int[size];
+            for (int i = 0; i < n; i++) {
+                tempArray[i] = (idata[i] == 0) ? 0 : 1;
+            }
+
+            // Exclusive scan
+            int* scannedArray = new int[size];
+            for (int i = 0; i < n; i++) {
+                scannedArray[i] = tempArray[i];
+            }
+            scannedArray[0] = 0;
+            for (int i = 0; i < n - 1; i++) {
+                scannedArray[i + 1] = scannedArray[i] + tempArray[i];
+            }
+
+            // Scatter
+            int count = 0;
+            for (int i = 0; i < n; i++) {
+                if (tempArray[i] == 1) {
+                    odata[scannedArray[i]] = idata[i];
+                    count++;
+                }
+            }
+            
             timer().endCpuTimer();
-            return -1;
+            return count;
         }
     }
 }
