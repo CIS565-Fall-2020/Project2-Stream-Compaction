@@ -11,18 +11,6 @@ int k_th_bit(int k, int n) {
     return (n >> k) & 1;
 }
 
-void myprint(int n, int* a, bool abridged = false) {
-    printf("    [ ");
-    for (int i = 0; i < n; i++) {
-        if (abridged && i + 2 == 15 && n > 16) {
-            i = n - 2;
-            printf("... ");
-        }
-        printf("%3d ", a[i]);
-    }
-    printf("]\n");
-}
-
 namespace StreamCompaction {
     namespace RadixSort {
         using StreamCompaction::Common::PerformanceTimer;
@@ -72,28 +60,23 @@ namespace StreamCompaction {
             std::copy(hst_in, hst_in + N, hst_out_buf);
 
             timer().startGpuTimer();
-            for (int k = max_bit; k > 0; k--) {
+            for (int k = 0; k < max_bit; k ++) {
                 for (int i = 0; i < N; i++) {
-                    hst_e[i] = 1 - k_th_bit(k-1, hst_out_buf[i]);
+                    hst_e[i] = 1 - k_th_bit(k, hst_out_buf[i]);
                 }
-
-                std::cout << "hst_out_buf: ";
-                myprint(N, hst_out_buf);
 
                 Efficient::scan(N, hst_f, hst_e, false, false, true);
 
                 int total_falses = hst_e[N - 1] + hst_f[N - 1];
+                
                 for (int i = 0; i < N; i++) {
                     hst_d[i] = hst_e[i] == 0 ? (i - hst_f[i] + total_falses) : hst_f[i];
                 }
 
                 for (int i = 0; i < N; i++) {
-                    hst_out[i] = hst_out_buf[hst_d[i]];
+                    hst_out[hst_d[i]] = hst_out_buf[i];
                 }
                 std::copy(hst_out, hst_out + N, hst_out_buf);
-
-                std::cout << "hst_out: ";
-                myprint(N, hst_out);
             }
 
             timer().endGpuTimer();

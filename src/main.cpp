@@ -138,11 +138,11 @@ int main(int argc, char* argv[]) {
     printf("** STREAM SORT TESTS **\n");
     printf("*****************************\n");
 
-    int sort_size_power = 2;
+    int sort_size_power = 5;
     assert(sort_size_power <= power);
     int sort_size = 1 << sort_size_power;
 
-    int num_power = 2;
+    int num_power = 5;
     genArray(sort_size - 1, a, 1 << num_power);  // Leave a 0 at the end to test that edge case
     a[sort_size - 1] = 0;
     printArray(sort_size, a, true);
