@@ -1,0 +1,5 @@
+How does dim3 work? and dimensions in CUDA. Does dim3 set unspecified arguments to 1 or 0?
+Does CUDA expect unused dimensions to be 1 or 0?
+
+How do these checkCUDAError work? They sometimes say that an entire is occurring at an incorrect location if 
+I dont have one at every CUDA function call.

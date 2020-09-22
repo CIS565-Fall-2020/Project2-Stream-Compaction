@@ -56,6 +56,9 @@ namespace StreamCompaction {
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
+
+            return;
+
             int* dev_idata;
             cudaMalloc((void**)&dev_idata, n * sizeof(int));
             checkCUDAError("cudaMalloc dev_idata failed!");
@@ -91,6 +94,8 @@ namespace StreamCompaction {
          */
         using namespace StreamCompaction::Common;
         int compact(int n, int *odata, const int *idata) {
+            return -1;
+
             int* dev_idata;
             int* dev_odata;
             bool* dev_bools;
@@ -122,18 +127,18 @@ namespace StreamCompaction {
             // TODO
             int k = ilog2ceil(n);
             // step 1: compute dev_bools = determine which elements should be purged
-            kernMapToBoolean<<<gridDim, blockDim>>>(n, dev_bools, dev_idata);
+            // kernMapToBoolean<<<gridDim, blockDim>>>(n, dev_bools, dev_idata);
             // step 2: exclusive scan on dev_bools
-            kernScan<<<gridDim, blockDim>>>(n, dev_indices, dev_bools);
+            // kernScan<<<gridDim, blockDim>>>(n, dev_indices, dev_bools);
             // step 3: reduce the array based on bools
-            kernScatter<<<gridDim, blockDim>>>(n, dev_odata, dev_idata, dev_bools, dev_indices);
+            // kernScatter<<<gridDim, blockDim>>>(n, dev_odata, dev_idata, dev_bools, dev_indices);
 
             timer().endGpuTimer();
 
             cudaFree(dev_idata);
             cudaFree(dev_odata);
             cudaFree(dev_bools);
-            cudaFree(dev_indices)
+            cudaFree(dev_indices);
 
             return -1;
         }
