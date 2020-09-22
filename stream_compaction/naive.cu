@@ -32,14 +32,15 @@ namespace StreamCompaction {
                     temp[pout*n+thid] += temp[pin*n+thid - offset];     
                 else       
                     temp[pout*n+thid] = temp[pin*n+thid];     
-                __syncthreads();   
+                __syncthreads();
             }   
             g_odata[thid] = temp[pout*n+thid]; 
             // write output 
         } 
 
-        __global__ void kernScan() {
-            int id = threadIdx.x + blockIdx.x;
+        __global__ void kernScan(int n, int* odata, int*idata, int offset, int pingpong) {
+            int index = threadIdx.x + blockIdx.x * blockDim.x;
+
         }
 
         /**
