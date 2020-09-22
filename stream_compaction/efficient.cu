@@ -12,13 +12,40 @@ namespace StreamCompaction {
             return timer;
         }
 
+
+        __global__ void prescan(float* g_odata, float* g_idata, int n) {
+            extern __shared__ float temp[];
+            // allocated on invocation 
+            int thid = threadIdx.x; int offset = 1;
+        }
+
+
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
+            int* dev_idata;
+            cudaMalloc((void**)&dev_idata, n * sizeof(int));
+            checkCUDAError("cudaMalloc dev_idata failed!");
+
+            cudaMemcpy(dev_idata, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+            checkCUDAError("cudaMemcpy idata to dev_idata failed!");
+
+            // for most gpus there are 1024 threads per block
+            int threadsPerBlock = 1024;
+            int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock; // ceiling of n / threadsPerBlock
+            dim3 blockDim(threadsPerBlock, 0, 0);
+            dim3 gridDim(blocksPerGrid, 0, 0);
+
+
             timer().startGpuTimer();
             // TODO
+            int k = ilog2ceil(n);
+            kernScan << <gridDim, blockDim >> > ();
+
             timer().endGpuTimer();
+
+            cudaFree(dev_idata);
         }
 
         /**
