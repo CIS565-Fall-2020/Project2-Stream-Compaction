@@ -17,8 +17,8 @@ Thanks to [FLARE LAB](http://faculty.sist.shanghaitech.edu.cn/faculty/liuxp/flar
 
 Add 
 
-1. [csvfile.hpp]() to automatically record the performance in CSV form. 
-2. [radixSort.h](), [radixSort.]() for [Part 6]()
+1. [csvfile.hpp](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/src/csvfile.hpp) to automatically record the performance in CSV form. 
+2. [radixSort.h](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/stream_compaction/radixSort.h), [radixSort.cu](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/stream_compaction/radixSort.cu) for [Part 6](https://github.com/Jack12xl/Project2-Stream-Compaction#part-6-radix-sort-extra-point)
 
 #### Intro
 
@@ -34,7 +34,7 @@ Here we managed to implement **all** the compulsory and extra point sections.
 
 After implementing all the functions, first we try to find the optimized block size.
 
-![alt text](https://github.com/Jack12xl/Project1-CUDA-Flocking/blob/master/images/2_x_baseline.png)
+![alt text](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/img/SCAN_for_block.svg)
 
 From the image, we may choose the optimized block size as 256
 
@@ -42,15 +42,15 @@ From the image, we may choose the optimized block size as 256
 
 Here we compare each scan, compact implementations under different array size. The results below are ran under block size = 256. 
 
-![alt text](https://github.com/Jack12xl/Project1-CUDA-Flocking/blob/master/images/2_x_baseline.png)
+![alt text](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/img/SCAN.svg)
 
-![alt text](https://github.com/Jack12xl/Project1-CUDA-Flocking/blob/master/images/2_x_baseline.png)
+![alt text](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/img/Compact.svg)
 
 ##### notes:
 
 - the **non-opt** refers to the non-optimization scan function before Part 5.
 - The **idx** refers to the optimized version in Part 5.
-- The shared memory refers to the optimized version in Part 7
+- The **shared memory** refers to the optimized version in Part 7
 
 ##### Output of test program
 
@@ -167,15 +167,15 @@ The array to be sorted is :
 
 #### Part 1~3:
 
-The performance is showed in previous image.
+The performance is showed in previous [image](https://github.com/Jack12xl/Project2-Stream-Compaction#implementation-comparisons).
 
 #### Part 4:
 
 Here shows the thrust summary and timeline:
 
-![alt text](https://github.com/Jack12xl/Project1-CUDA-Flocking/blob/master/images/2_x_baseline.png)
+![alt text](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/img/Thrust.png)
 
-![alt text](https://github.com/Jack12xl/Project1-CUDA-Flocking/blob/master/images/2_x_baseline.png)
+![alt text](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/img/Thrust_timeline.png)
 
 #### Part 5: why GPU version so slow [Extra point]
 
@@ -230,7 +230,7 @@ So instead, we tear the up-sweep and down-sweep process in several part( based o
 
 ##### Detail:
 
-In our design, we set the shared memory size twice as big as the block size. The reason for this is to utilize the index mapping from [part 5]().
+In our design, we set the shared memory size twice as big as the block size. The reason for this is to utilize the index mapping from [part 5](https://github.com/Jack12xl/Project2-Stream-Compaction#part-5-why-gpu-version-so-slow-extra-point).
 
 Sadly we do not consider the bank conflict effect.
 
@@ -244,17 +244,17 @@ The shared memory version is prone to cause integer overflow so we decrease the 
 
 - ##### Roughly optimize the block sizes of each of your implementations for minimal run time on your GPU.
 
-  - As is discussed in [here](), we adopt the 256 block size for both naive and efficient version.
+  - As is discussed in [here](https://github.com/Jack12xl/Project2-Stream-Compaction#optimized-block-size), we adopt the 256 block size for both naive and efficient version.
 
 - ##### Compare all of these GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan. Plot a graph of the comparison (with array size on the independent axis).
 
-  - The picture is showed [here](). 
+  - The picture is showed [here](https://github.com/Jack12xl/Project2-Stream-Compaction#implementation-comparisons). 
 
 - ##### Can you find the performance bottlenecks? Is it memory I/O? Computation? Is it different for each implementation?
 
-  - Personally I believe the bottlenecks lie mainly in memory I/O. Because for each implementation the computation is pretty straight(with complexity **O(n)** and **O(n * log(n)**). When the shared memory is introduced, the performance goes up drastically.  
+  - Personally I believe the bottlenecks lie mainly in memory I/O. Because for each implementation the computation is pretty straight(with complexity **O(n)** and **O(n * log(n)**). Besides, when the shared memory is introduced to decrease the I/O latency, the performance goes up drastically.  
 
 - ##### Paste the output of the test program into a triple-backtick block in your README.
 
-  - Pasted [here]()
+  - Pasted [here](https://github.com/Jack12xl/Project2-Stream-Compaction#output-of-test-program)
 
