@@ -37,9 +37,9 @@ namespace StreamCompaction {
           int nextN = 1 << iterations;
           int *dev_idata_temp;
           cudaMalloc((void **) &dev_idata_temp, nextN * sizeof(int));
-          checkCUDAError("cudaMalloc dev_idata_temp failed");
+          checkCUDAError("SCAN: cudaMalloc dev_idata_temp failed");
           cudaMemset(dev_idata_temp, 0, nextN *sizeof(int));
-          checkCUDAError("cudaMemset dev_idata_temp failed");
+          checkCUDAError("SCAN: cudaMemset dev_idata_temp failed");
           if (callFromMain) {
               cudaMemcpy(dev_idata_temp, dev_idata, sizeof(int) * n, cudaMemcpyHostToDevice);
               timer().startGpuTimer();
@@ -47,14 +47,14 @@ namespace StreamCompaction {
           else {
               cudaMemcpy(dev_idata_temp, dev_idata, sizeof(int) * n, cudaMemcpyDeviceToDevice);
           }
-          checkCUDAError("cudaMemcpy dev_idata_temp failed");
+          checkCUDAError("SCAN: cudaMemcpy dev_idata_temp failed");
 
           // Up-sweep
           for (int d = 1; d <= iterations; d++) {
             int numThreads = 1 << (iterations - d);
             dim3 blocks((numThreads + blockSize - 1) / blockSize);
             upSweep<<<blocks, blockSize>>>(dev_idata_temp, d);
-            checkCUDAError("upSweep failed");
+            checkCUDAError("SCAN: upSweep failed");
           }
 
           // Down-sweep
@@ -64,7 +64,7 @@ namespace StreamCompaction {
             int numThreads = 1 << (iterations - d);
             dim3 blocks((numThreads + blockSize - 1) / blockSize);
             downSweep<<<blocks, blockSize>>>(dev_idata_temp, d);
-            checkCUDAError("downSweep failed");
+            checkCUDAError("SCAN: downSweep failed");
           }
           
           if (callFromMain) {
@@ -74,7 +74,7 @@ namespace StreamCompaction {
           else {
               cudaMemcpy(dev_odata, dev_idata_temp, sizeof(int) * n, cudaMemcpyDeviceToDevice);
           }
-          checkCUDAError("cudaMemcpy dev_odata failed");
+          checkCUDAError("SCAN: cudaMemcpy dev_odata failed");
 
           cudaFree(dev_idata_temp);
         }
@@ -91,25 +91,35 @@ namespace StreamCompaction {
         int compact(int n, int *odata, const int *idata) {
           int *bools, *indices, *dev_idata, *dev_odata;
           cudaMalloc((void**) &bools, sizeof(int) * n);
+          checkCUDAError("COMPACT: cudaMalloc bools failed");
           cudaMalloc((void**) &indices, sizeof(int) * n);
+          checkCUDAError("COMPACT: cudaMalloc indices failed");
           cudaMalloc((void**) &dev_idata, sizeof(int) * n);
+          checkCUDAError("COMPACT: cudaMalloc dev_idata failed");
           cudaMalloc((void**) &dev_odata, sizeof(int) * n);
+          checkCUDAError("COMPACT: cudaMalloc dev_odata failed");
           cudaMemcpy(dev_idata, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+          checkCUDAError("COMPACT: cudaMalloc idata->dev_idata failed");
 
           timer().startGpuTimer();
 
           dim3 blocks((n + blockSize - 1) / blockSize);
           Common::kernMapToBoolean<<<blocks, blockSize>>>(n, bools, dev_idata);
+          checkCUDAError("COMPACT: kernMapToBoolean failed");
           scan(n, indices, bools, false);
           Common::kernScatter<<<blocks, blockSize>>>(n, dev_odata, dev_idata, bools, indices);
+          checkCUDAError("COMPACT: kernScatter failed");
 
           timer().endGpuTimer();
           
           int cnt, lastBool;
           cudaMemcpy(odata, dev_odata, sizeof(int) * n, cudaMemcpyDeviceToHost);
+          checkCUDAError("COMPACT: cudaMemcpy dev_odata->odata failed");
           // Copy the count back
           cudaMemcpy(&cnt, &indices[n - 1], sizeof(int), cudaMemcpyDeviceToHost);
+          checkCUDAError("COMPACT: cudaMemcpy indices->cnt failed");
           cudaMemcpy(&lastBool, &bools[n - 1], sizeof(int), cudaMemcpyDeviceToHost);
+          checkCUDAError("COMPACT: cudaMemcpy bools->lastBool failed");
           cudaFree(bools);
           cudaFree(indices);
           cudaFree(dev_idata);
