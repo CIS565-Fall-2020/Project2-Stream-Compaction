@@ -41,6 +41,7 @@ include_directories(.)
 
 set(headers
     "src/testing_helpers.hpp"
+    "src/csvfile.hpp"
     )
 
 set(sources
