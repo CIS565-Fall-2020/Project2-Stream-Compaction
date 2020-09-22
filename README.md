@@ -25,7 +25,7 @@ The main focus of this project is implementing GPU stream compaction and other p
 
 **Performance Analysis**
 
-Both CPU and GPU timing functions are warapped up as a performance timer class in order to measure the time cost conveniently. We use *std::chrono* to provide CPU high-precision timing and CUDA event to measure the CUDA performance. In order to measure the performance of the implementation itself, I **have not** included the cost of initial and final memory operations on the GPU such as cudaMalloc() or cudaMemcpy() while timing the runtime.
+Both CPU and GPU timing functions are wrapped up as a performance timer class in order to measure the time cost conveniently. We use *std::chrono* to provide CPU high-precision timing and CUDA event to measure the CUDA performance. In order to measure the performance of the implementation itself, I **have not** included the cost of initial and final memory operations on the GPU such as cudaMalloc() or cudaMemcpy() while timing the runtime.
 
 As the first step of the performance analysis, let's compare the performance of different scan implementations. In order to achieve this, I passed different block sizes to be used on the GPU while keeping the input size constant. I defined one input array with randomly generated integers except I read two different amounts of items: 2^20 (thus an exact power of 2) and 2^20 - 3 (thus 3 integers less). I will refer to the first size as **POT (Power Of Two)** and the second size as **NPOT (Non-Power Of Two)**.
 
