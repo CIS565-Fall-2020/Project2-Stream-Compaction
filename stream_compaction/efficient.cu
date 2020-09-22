@@ -47,8 +47,6 @@ namespace StreamCompaction {
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int* odata, const int* idata) {
-            //timer().startGpuTimer();
-
             int power_of_2 = 1;
             while (power_of_2 < n) {
                 power_of_2 *= 2;
@@ -72,6 +70,7 @@ namespace StreamCompaction {
             int blockSize = 128;
             dim3 fullBlocksPerGrid((power_of_2 + blockSize - 1) / blockSize);
 
+            timer().startGpuTimer();
             // up-sweep
             for (int d = 0; d <= ilog2(power_of_2) - 1; d++) {
                 upSweep << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data);
@@ -82,20 +81,20 @@ namespace StreamCompaction {
             for (int i = n - 1; i < power_of_2; i++) {
                 padded_array[i] = 0;
             }
+            //padded_array[n - 1] = 0;
             cudaMemcpy(data, padded_array.get(), sizeof(int) * power_of_2, cudaMemcpyHostToDevice);
 
             // down-sweep
             for (int d = ilog2(power_of_2) - 1; d >= 0; d--) {
                 downSweep << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data);
             }
+            timer().endGpuTimer();
 
             // set the out data to the scanned data
             cudaMemcpy(odata, data, sizeof(int) * n, cudaMemcpyDeviceToHost);
 
             // free memory
             cudaFree(data);
-
-            //timer().endGpuTimer();
         }
 
         /**
@@ -108,8 +107,6 @@ namespace StreamCompaction {
          * @returns      The number of elements remaining after compaction.
          */
         int compact(int n, int* odata, const int* idata) {
-            timer().startGpuTimer();
-
             // malloc necessary space oon GPU
             int* gpu_idata;
             int* bools;
@@ -132,6 +129,7 @@ namespace StreamCompaction {
             int blockSize = 128;
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
 
+            //timer().startGpuTimer();
             // change to zeros and ones
             Common::kernMapToBoolean << <fullBlocksPerGrid, blockSize >> > (n, bools, gpu_idata);
 
@@ -141,13 +139,19 @@ namespace StreamCompaction {
             // scatter
             Common::kernScatter << <fullBlocksPerGrid, blockSize >> > (n, scattered_data, gpu_idata, bools, scanned_data);
             cudaMemcpy(odata, scattered_data, sizeof(int) * n, cudaMemcpyDeviceToHost);
+            int num = n;
+            for (int i = 0; i < n; i++) {
+                if (odata[i] == 0) {
+                    num = i;
+                    break;
+                }
+            }
+            //timer().endGpuTimer();
 
             // return last index in scanned_data
             std::unique_ptr<int[]>scanned_cpu{ new int[n] };
-            cudaMemcpy(scanned_cpu.get(), scanned_data, sizeof(int) * n, cudaMemcpyDeviceToHost);
-
-            timer().endGpuTimer();
-            return scanned_cpu[n - 1];
+            cudaMemcpy(scanned_cpu.get(), scanned_data, sizeof(int) * num, cudaMemcpyDeviceToHost);
+            return num;
         }
     }
 }
