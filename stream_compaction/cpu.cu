@@ -57,16 +57,16 @@ namespace StreamCompaction {
         int compactWithScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             
-            // Compute temporary array
+            // Compute temporary array and run exclusive scan on temporary array
+            int prefixSum = 0;
             int* tdata = new int[n];
+            int* sdata = new int[n];
             for (int i = 0; i < n; i++)
             {
                 tdata[i] = idata[i] != 0 ? 1 : 0;
+                sdata[i] = prefixSum;
+                prefixSum += tdata[i];
             }
-
-            // Run exclusive scan on temporary array
-            int* sdata = new int[n];
-            scan(n, sdata, tdata);
 
             // Scatter
             int idx = 0;
