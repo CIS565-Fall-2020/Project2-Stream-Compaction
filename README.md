@@ -10,15 +10,15 @@ CUDA Stream Compaction
 This project implements different versions of scan, including CPU scan, naive scan, work-efficient scan and thrust scan. Some of these methods are used to implement stream compaction. A timer is used to measure the time cost and evaluate the performance.
 
 ### Performance Analysis
-![blockSize](images/blockSize.PNG)  
+![blockSize](img/blockSize.PNG)  
 This diagram demonstrates the change of time with respect to block size. The block size of 128 and 256 have relatively good performance.
 
-![powerOfTwo](images/powerOfTwo.PNG)
-![nonePowerOfTwo](images/nonPowerOfTwo.PNG)
+![powerOfTwo](img/powerOfTwo.PNG)
+![nonePowerOfTwo](img/nonPowerOfTwo.PNG)  
 The diagrams show the change of time with array size increases. The first diagram is for power-of-two size array. The second one is for non-power-of-two size array. Their performance is almost the same. When the array size is small, the CPU implementation has a better performance. I think it is because most of the threads doesn't actually work at a deeper level, but just swap two device memory. Additionally, the GPU version algorithms use bit shifting to find offsets or intervals of each level, which takes extra time. With the array size increases, the GPU version algorithms have better performance, especially the work-efficient and thrust method.
 
 ### Output of The Test Program
-Here is the test result of an array of 2^16 and a block size of 128. More results are in images/performance analysis.xlsx.
+Here is the test result of an array of 2^16 and a block size of 128. More results are in img/performance analysis.xlsx.
 ```
 ****************
 ** SCAN TESTS **
