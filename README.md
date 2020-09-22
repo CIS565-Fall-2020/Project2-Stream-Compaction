@@ -95,9 +95,9 @@ Unfortunately, the Work-Efficient Scan is less efficient than the Naive Scan. Be
 
 ![](img/scan_cuda_analysis.png)
 
-The total kernel run-time of Work-Efficient Scan is about two times that of Naive Scan, so Work-Efficient Scan takes twice as much time. This is a problem with the lack of optimization in the kernel calls; the kernels are not efficient enough to balance out the fact that there are twice as many calls. 
+The total kernel run-time of Work-Efficient Scan is about two times that of Naive Scan, so Work-Efficient Scan takes twice as much time. This is a problem with the lack of optimization in the kernel calls; the kernels are not efficient enough to balance out the fact that there are twice as many calls. Indeed, many of the threads during each kernel call are being unused, and the array access is not contiguous in memory, contributing to the slowness of the algorithm.
 
-Interestingly, the Thrust Scan's performance stays relatively the same no matter what. I could not find it on NSight's Timeline, even when it was the only function being called, so I cannot genuinely analyze its performance or hypothesize why it's so consistent.
+Interestingly, the Thrust Scan's performance stays relatively constant no matter the size. I could not find it on NSight's Timeline, even when it was the only function being called, so I cannot genuinely analyze its performance or hypothesize why it's so consistent.
 
 ## Compact Runtime Analysis
 
@@ -125,3 +125,27 @@ The process to optimize block size was very informal; I ran the program a number
 * It was difficult to sense a difference between block sizes 64 and 128.
 * A block size of 256 seems to make work efficient scan faster, dropping by 0.2ms on avergae, but slightly taxes work compact 0.1-0.2ms.
 * There is much more performance fluctuation with 512, causing the Work-Efficient Scan and Compact to lag abnormally. Therefore, it is unideal for our algorithms.
+
+## Radix Sort (Extra Credit)
+
+I implemented radix sort and wrote some test cases for it. Since radix sort draws upon the Scan algorithm for its implementation, its performance relies on the performance of the Work-Efficient algorithm, which is not at its most efficient currently. An example of my test case outputs is below:
+
+```
+*****************************
+** RADIX SORT TESTS **
+*****************************
+    [  20  88  42  96  80  14   7  35  81  54  67  80  32 ...  75   0 ]
+==== radix, power-of-two ====
+    [   0   0   0   0   0   0   0   0   0   0   0   1   1 ...  99  99 ]
+    passed
+==== radix, non power-of-two ====
+    passed
+==== radix, unsorted array of 1 - 8 ====
+    [   0   1   2   3   4   5   6   7 ]
+    passed
+==== radix, array with duplicates ====
+    [   1   4  28  42  42  53 129 129 ]
+    passed
+==== radix, backwards sorted array ====
+    passed
+``` 
