@@ -22,17 +22,14 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
 
-            cudaMalloc((void**)&dev_inData, sizeof(int) * n);
-            cudaMalloc((void**)&dev_outData, sizeof(int) * n);
-            cudaMemcpy(dev_inData, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
             timer().startGpuTimer();
-            thrust::device_ptr<int> dev_thrust_idata(dev_inData);
-            thrust::device_ptr<int> dev_thrust_odata(dev_outData);
-            thrust::exclusive_scan(dev_thrust_idata, dev_thrust_idata + n, dev_thrust_odata);
+            thrust::host_vector<int> host_v(n);
+            thrust::copy(idata, idata + n, host_v.begin());
+            thrust::device_vector<int> dev_v = host_v;
+            thrust::device_vector<int> out_v(n);
+            thrust::exclusive_scan(dev_v.begin(), dev_v.end(), out_v.begin());
+            thrust::copy(out_v.begin(), out_v.end(), odata);
             timer().endGpuTimer();
-            cudaMemcpy(odata, dev_outData, sizeof(int) * n, cudaMemcpyDeviceToHost);
-            cudaFree(dev_inData);
-            cudaFree(dev_outData);
         }
     }
 }

@@ -13,12 +13,13 @@
 #include <stream_compaction/thrust.h>
 #include "testing_helpers.hpp"
 
-const int SIZE = 1 << 17; // feel free to change the size of array
+const int SIZE = 1 << 10; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
 int *b = new int[SIZE];
 int *c = new int[SIZE];
-int* d = new int[8];
+int *d = new int[8];
+int* e = new int[SIZE];
 
 int main(int argc, char* argv[]) {
     // Scan tests
@@ -152,9 +153,89 @@ int main(int argc, char* argv[]) {
     //printArray(count, c, true);
     printCmpLenResult(count, expectedNPOT, b, c);
 
+    printf("\n");
+    printf("*****************************\n");
+    printf("** RADIX SORT TESTS **\n");
+    printf("*****************************\n");
+
+    genArray(SIZE - 1, a, 100);  // Leave a 0 at the end to test that edge case
+    a[SIZE - 1] = 0;
+    printArray(SIZE, a, true);
+
+    printDesc("radix, power-of-two");
+    StreamCompaction::Radix::radixSort(SIZE, c, a);
+    printArray(SIZE, c, true);
+    for (int i = 0; i < SIZE - 1; i++) {
+        if (c[i] > c[i + 1]) {
+            printf("    FAILED\n");
+            break;
+        }
+        else if (i == SIZE - 2) {
+            printf("    passed\n");
+        }
+    }
+
+    printDesc("radix, non power-of-two");
+    StreamCompaction::Radix::radixSort(NPOT, c, a);
+    for (int i = 0; i < NPOT - 1; i++) {
+        if (c[i] > c[i + 1]) {
+            printf("    FAILED\n");
+            printArray(NPOT, c, true);
+            break;
+        }
+        else if (i == NPOT - 2) {
+            printf("    passed\n");
+        }
+    }
+
+    d[0] = 4, d[1] = 7, d[2] = 2, d[3] = 6, d[4] = 3, d[5] = 5, d[6] = 1, d[7] = 0;
+    printDesc("radix, unsorted array of 1 - 8");
+    StreamCompaction::Radix::radixSort(8, c, d);
+    printArray(8, c, true);
+    for (int i = 0; i < 8 - 1; i++) {
+        if (c[i] > c[i + 1]) {
+            printf("    FAILED\n");
+            break;
+        }
+        else if (i == 8 - 2) {
+            printf("    passed\n");
+        }
+    }
+
+    d[0] = 42, d[1] = 42, d[2] = 129, d[3] = 129, d[4] = 53, d[5] = 1, d[6] = 4, d[7] = 28;
+    printDesc("radix, array with duplicates");
+    StreamCompaction::Radix::radixSort(8, c, d);
+    printArray(8, c, true);
+    for (int i = 0; i < 8 - 1; i++) {
+        if (c[i] > c[i + 1]) {
+            printf("    FAILED\n");
+            break;
+        }
+        else if (i == 8 - 2) {
+            printf("    passed\n");
+        }
+    }
+
+    for (int i = 0; i < SIZE; i++) {
+        b[i] = SIZE - i;
+    }
+
+    printDesc("radix, backwards sorted array");
+    StreamCompaction::Radix::radixSort(SIZE, c, b);
+    for (int i = 0; i < SIZE - 1; i++) {
+        if (c[i] > c[i + 1]) {
+            printf("    FAILED\n");
+            break;
+        }
+        else if (i == SIZE - 2) {
+            printf("    passed\n");
+        }
+    }
+
     system("pause"); // stop Win32 console from closing on exit
     delete[] a;
     delete[] b;
     delete[] c;
     delete[] d;
+    delete[] e;
 }
