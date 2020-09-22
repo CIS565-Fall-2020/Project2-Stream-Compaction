@@ -15,11 +15,14 @@ Thanks to [FLARE LAB](http://faculty.sist.shanghaitech.edu.cn/faculty/liuxp/flar
 
 ##### Cmake change
 
-Add [csvfile.hpp]() to get the performance in CSV form. 
+Add 
+
+1. [csvfile.hpp]() to get the performance in CSV form. 
+2. [radixSort.h](), [radixSort.]() for [Part 6]()
 
 ### Intro
 
-In this project, basically we implement parallel scan algorithm based on CUDA required by [instruction](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/INSTRUCTION.md). 
+In this project, basically we implement parallel scan algorithm based on CUDA parrallelism required by [instruction](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/INSTRUCTION.md). 
 
 
 

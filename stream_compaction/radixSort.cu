@@ -65,7 +65,7 @@ namespace StreamCompaction {
                     hst_e[i] = 1 - k_th_bit(k, hst_out_buf[i]);
                 }
 
-                Efficient::scan(N, hst_f, hst_e, false, false, true);
+                Efficient::scan(N, hst_f, hst_e, EFF_method::sharedMemory, false);
 
                 int total_falses = hst_e[N - 1] + hst_f[N - 1];
                 

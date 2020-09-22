@@ -152,7 +152,7 @@ namespace StreamCompaction {
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
-        void scan(int n, int *odata, const int *idata, bool ifTimer = true,bool ifIdxScale = false, bool ifSharedMemory = false) {
+        void scan(int n, int *odata, const int *idata, EFF_method cur_method, bool ifTimer = true ) {
             if (n == 0) {
                 return;
             }
@@ -174,7 +174,7 @@ namespace StreamCompaction {
             }
             
             // TODO
-            if (ifSharedMemory) {
+            if (cur_method == EFF_method::sharedMemory) {
                 int unroll_depth = ilog2ceil(efficient_blocksize);
                 
                 for (int cur_depth = 0; cur_depth < log_n; cur_depth += unroll_depth) {
@@ -186,7 +186,7 @@ namespace StreamCompaction {
             }
             else {
                 for (int d = 0; d <= log_n - 1; d++) {
-                    if (ifIdxScale) {
+                    if (cur_method == EFF_method::idxMapping) {
                         blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
                         kernUpSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
                     }
@@ -195,6 +195,7 @@ namespace StreamCompaction {
                         kernSharedMemoryUpSweepStep <<<blocksPerGrid, efficient_blocksize, 2 * efficient_blocksize * sizeof(int) >>> (n_2, 1 << d, dev_idata);
                     }*/
                     else {
+                        // non optimization
                         kernUpSweepStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
                     }
                 }
@@ -203,7 +204,7 @@ namespace StreamCompaction {
 
             kernUpdateArray << <1, 1 >> > (n_2 - 1, 0, dev_idata);
 
-            if (ifSharedMemory) {
+            if (cur_method == EFF_method::sharedMemory) {
                 int unroll_depth = ilog2ceil(efficient_blocksize);
                 for (int cur_depth = log_n; cur_depth > 0; cur_depth -= unroll_depth) {
                     int target_depth = std::max(0, cur_depth - unroll_depth);
@@ -214,7 +215,7 @@ namespace StreamCompaction {
             }
             else {
                 for (int d = log_n - 1; d >= 0; d--) {
-                    if (ifIdxScale) {
+                    if (cur_method == EFF_method::idxMapping) {
                         blocksPerGrid = (n_2 / (1 << (1 + d)) + efficient_blocksize - 1) / efficient_blocksize;
                         kernDownSweepIndexScaleStep << <blocksPerGrid, efficient_blocksize >> > (n_2, 1 << d, dev_idata);
                     }
@@ -245,7 +246,7 @@ namespace StreamCompaction {
          * @param idata  The array of elements to compact.
          * @returns      The number of elements remaining after compaction.
          */
-        int compact(int N, int *odata, const int *idata) {
+        int compact(int N, int *odata, const int *idata, EFF_method cur_method) {
             if (N == 0) {
                 return 0;
             }
@@ -269,7 +270,7 @@ namespace StreamCompaction {
             dim3 blocksPerGrid = (N + efficient_blocksize - 1) / efficient_blocksize;
             Common::kernMapToBoolean << <blocksPerGrid, efficient_blocksize >> > (N, dev_bools, dev_idata);
             
-            scan(N, dev_indices, dev_bools, false, true, false);
+            scan(N, dev_indices, dev_bools, cur_method, false);
 
             Common::kernScatter << <blocksPerGrid, efficient_blocksize >> > (
                 N, 
