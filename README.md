@@ -145,3 +145,16 @@ Given an array, create a new array of elements that meet a certain criteria. The
           - then put it at output[index], where index = scanned[i]
 
 # PERFORMANCE ANALYSIS 
+
+* Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with array size on the x axis. 
+  BlockSize used :128 
+
+![Scan Implementations Performance Arr Comparison Line Graph](img/graph_scancomp.png)
+
+![Scan Implementations Performance Arr Comparison Bar chart](img/bar_scancomp.png)
+
+* Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with BlockSize on the x axis. 
+  Array Size used: 2^12
+
+![Scan Implementations Performance Block Comparison Bar chart](img/graph_blocksizecomp.png)
+ 

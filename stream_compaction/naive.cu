@@ -4,7 +4,7 @@
 #include "naive.h"
 #include <stdio.h>
 #define GLM_FORCE_CUDA
-#define blockSize 128
+#define blockSize 1024
 
 namespace StreamCompaction {
     namespace Naive {
