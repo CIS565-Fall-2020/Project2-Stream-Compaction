@@ -62,7 +62,7 @@ namespace StreamCompaction {
             timer().startGpuTimer();
             // TODO
             int k = ilog2ceil(n);
-            kernScan<<<gridDim, blockDim >>>();
+            // kernScan<<<gridDim, blockDim >>>();
 
             timer().endGpuTimer();
 
