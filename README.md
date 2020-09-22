@@ -254,6 +254,12 @@ The shared memory version is prone to cause integer overflow so we decrease the 
 
   - Personally I believe the bottlenecks lie mainly in memory I/O. Because for each implementation the computation is pretty straight(with complexity **O(n)** and **O(n * log(n)**). Besides, when the shared memory is introduced to decrease the I/O latency, the performance goes up drastically.  
 
+- ##### Thrust implementation
+
+  - As is depicted in this [figure](https://github.com/Jack12xl/Project2-Stream-Compaction/blob/master/img/Thrust_timeline.png)
+    - **Memory**: thrust use thrust pointer to wrap the memory. It would automatically copy memory between host and device when necessary.
+    - 
+
 - ##### Paste the output of the test program into a triple-backtick block in your README.
 
   - Pasted [here](https://github.com/Jack12xl/Project2-Stream-Compaction#output-of-test-program)
