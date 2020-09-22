@@ -43,6 +43,14 @@ namespace StreamCompaction {
             data[replace_index] += t;
         }
 
+        // set n-1 to power of 2 values equal to 0
+        __global__ void setZeros(int n, int power_of_2, int* data) {
+            int index = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (index < power_of_2 && index >= n - 1) {
+                data[index] = 0;
+            }
+        }
+
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
@@ -77,12 +85,7 @@ namespace StreamCompaction {
             }
 
             // set the last value to 0
-            cudaMemcpy(padded_array.get(), data, sizeof(int) * power_of_2, cudaMemcpyDeviceToHost);
-            for (int i = n - 1; i < power_of_2; i++) {
-                padded_array[i] = 0;
-            }
-            //padded_array[n - 1] = 0;
-            cudaMemcpy(data, padded_array.get(), sizeof(int) * power_of_2, cudaMemcpyHostToDevice);
+            setZeros << <fullBlocksPerGrid, blockSize >> > (n, power_of_2, data);
 
             // down-sweep
             for (int d = ilog2(power_of_2) - 1; d >= 0; d--) {
