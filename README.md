@@ -5,13 +5,13 @@ CUDA Stream Compaction
 
 ## SIREESHA PUTCHA 
 	
-* <img src= "images/Logos/linkedin.png" alt = "LinkedIn" height = "30" width = "30">   [LinkedIn](https://www.linkedin.com/in/sireesha-putcha/)
+* <img src= "img/Logos/linkedin.png" alt = "LinkedIn" height = "30" width = "30">   [LinkedIn](https://www.linkedin.com/in/sireesha-putcha/)
 
-* <img src= "images/Logos/facebook.png" alt = "Fb" height = "30" width = "30">  [Facebook](https://www.facebook.com/sireesha.putcha98/)
+* <img src= "img/Logos/facebook.png" alt = "Fb" height = "30" width = "30">  [Facebook](https://www.facebook.com/sireesha.putcha98/)
 
-* <img src= "images/Logos/chat.png" alt = "Portfolio" height = "30" width = "30">   [Portfolio](https://sites.google.com/view/sireeshaputcha/home)
+* <img src= "img/Logos/chat.png" alt = "Portfolio" height = "30" width = "30">   [Portfolio](https://sites.google.com/view/sireeshaputcha/home)
 
-* <img src= "images/Logos/mail.png" alt = "Mail" height = "30" width = "30">  sireesha@seas.upenn.edu
+* <img src= "img/Logos/mail.png" alt = "Mail" height = "30" width = "30">  sireesha@seas.upenn.edu
 
 
 * Tested on personal computer - Microsoft Windows 10 Pro, 
@@ -76,17 +76,13 @@ There are 2 types of scans :
 
 ![Naive Scan](img/naive.png)
 
-* Work Efficient Parallel Scan : This scan uses a balanced binary tree concept. 
+* Work Efficient Parallel Scan : This scan uses a balanced binary tree concept. There are 2 phases in this scan. 
 
-![Work Efficient Scan](img/wescan.png)
-
-There are 2 phases in this scan. 
-
-* Upsweep : This phase is similar to parallel reduction. The sum of all elements is stored in the last element. 
+** Upsweep : This phase is similar to parallel reduction. The sum of all elements is stored in the last element. 
 
 ![Upsweep](img/upsweep.png)
 
-* Downsweep : Traverse back down the tree using partial sums. 
+** Downsweep : Traverse back down the tree using partial sums. 
 
 ![Downsweep](img/downsweep.png)
 
