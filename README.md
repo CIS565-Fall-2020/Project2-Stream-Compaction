@@ -72,17 +72,17 @@ There are 2 types of scans :
 
 ### Ways to implement scan 
 
-* Naive Parallel Scan :In this, each thread writes one sum and reads two values 
+* Naive Parallel Scan: In this, each thread writes one sum and reads two values 
 
 ![Naive Scan](img/naive.png)
 
 * Work Efficient Parallel Scan : This scan uses a balanced binary tree concept. There are 2 phases in this scan. 
 
-** Upsweep : This phase is similar to parallel reduction. The sum of all elements is stored in the last element. 
+	-Upsweep : This phase is similar to parallel reduction. The sum of all elements is stored in the last element. 
 
 ![Upsweep](img/upsweep.png)
 
-** Downsweep : Traverse back down the tree using partial sums. 
+	-Downsweep : Traverse back down the tree using partial sums. 
 
 ![Downsweep](img/downsweep.png)
 
