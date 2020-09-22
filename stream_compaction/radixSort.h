@@ -7,5 +7,7 @@ namespace StreamCompaction {
         StreamCompaction::Common::PerformanceTimer& timer();
         
         void CpuStandardSort(const int& N, int* out, const int* in);
+
+        void GpuRadixSort(const int& N, int* out, const int* in, const int max_bit);
     }
 }

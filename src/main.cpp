@@ -14,10 +14,10 @@
 #include <stream_compaction/radixSort.h>
 #include "testing_helpers.hpp"
 #include "csvfile.hpp"
+#include <cassert>
 
 
-
-const int power = 25;
+const int power = 8;
 const int SIZE = 1 << power; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
@@ -119,24 +119,47 @@ int main(int argc, char* argv[]) {
     printArray(NPOT, c, true);
     printCmpResult(NPOT, b, c);
 
-    
-    
+    //zeroArray(SIZE, c);
+    //printDesc("thrust scan, power-of-two");
+    //StreamCompaction::Thrust::scan(SIZE, c, a);
+    //printElapsedTime(StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
+    ////printArray(SIZE, c, true);
+    //printCmpResult(SIZE, b, c);
 
-   
+    //zeroArray(SIZE, c);
+    //printDesc("thrust scan, non-power-of-two");
+    //StreamCompaction::Thrust::scan(NPOT, c, a);
+    //printElapsedTime(StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
+    ////printArray(NPOT, c, true);
+    //printCmpResult(NPOT, b, c);
 
-    zeroArray(SIZE, c);
-    printDesc("thrust scan, power-of-two");
-    StreamCompaction::Thrust::scan(SIZE, c, a);
-    printElapsedTime(StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
-    //printArray(SIZE, c, true);
-    printCmpResult(SIZE, b, c);
+    printf("\n");
+    printf("*****************************\n");
+    printf("** STREAM SORT TESTS **\n");
+    printf("*****************************\n");
 
-    zeroArray(SIZE, c);
-    printDesc("thrust scan, non-power-of-two");
-    StreamCompaction::Thrust::scan(NPOT, c, a);
-    printElapsedTime(StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
-    //printArray(NPOT, c, true);
-    printCmpResult(NPOT, b, c);
+    int sort_size_power = 2;
+    assert(sort_size_power <= power);
+    int sort_size = 1 << sort_size_power;
+
+    int num_power = 2;
+    genArray(sort_size - 1, a, 1 << num_power);  // Leave a 0 at the end to test that edge case
+    a[sort_size - 1] = 0;
+    printArray(sort_size, a, true);
+
+    printf("The array to be sorted is : \n");
+    printArray(sort_size, a, true);
+    printDesc("Std sort");
+    StreamCompaction::RadixSort::CpuStandardSort(sort_size, b, a);
+    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
+    printArray(sort_size, b, true);
+
+    printDesc("Radix sort");
+    zeroArray(sort_size, c);
+    StreamCompaction::RadixSort::GpuRadixSort(sort_size, c, a, num_power);
+    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
+    printArray(sort_size, c, true);
+    printCmpResult(sort_size, b, c);
 
     printf("\n");
     printf("*****************************\n");
@@ -190,24 +213,7 @@ int main(int argc, char* argv[]) {
     printArray(count, c, true);
     printCmpLenResult(count, expectedNPOT, b, c);
 
-    printf("\n");
-    printf("*****************************\n");
-    printf("** STREAM COMPACTION TESTS **\n");
-    printf("*****************************\n");
-
-
-    genArray(SIZE - 1, a, 256);  // Leave a 0 at the end to test that edge case
-    a[SIZE - 1] = 0;
-    printArray(SIZE, a, true);
-
-
-    printf("The array to be sorted is : \n");
-    printArray(SIZE, a, true);
-    printDesc("std sort");
-    StreamCompaction::RadixSort::CpuStandardSort(SIZE, b, a);
-    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
-    printArray(SIZE, b, true);
-    //printCmpResult(NPOT, b, b);
+    
 
     system("pause"); // stop Win32 console from closing on exit
     delete[] a;
