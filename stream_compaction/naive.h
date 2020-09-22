@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-constexpr int blocksize = 128;
+constexpr int blocksize = 256;
 
 namespace StreamCompaction {
     namespace Naive {
