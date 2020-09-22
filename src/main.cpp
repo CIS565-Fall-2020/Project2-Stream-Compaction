@@ -13,7 +13,7 @@
 #include <stream_compaction/thrust.h>
 #include "testing_helpers.hpp"
 
-const int SIZE = 1 << 10; // feel free to change the size of array
+const int SIZE = 1 << 25; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
 int *b = new int[SIZE];
@@ -35,13 +35,26 @@ int main(int argc, char* argv[]) {
     // We use b for further comparison. Make sure your StreamCompaction::CPU::scan is correct.
     // At first all cases passed because b && c are all zeroes.
     zeroArray(SIZE, b);
-    printDesc("cpu scan, power-of-two");
+    printDesc("cpu scan, power-of-two (First run)");
+    StreamCompaction::CPU::scan(SIZE, b, a);
+    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
+    printArray(SIZE, b, true);
+
+    zeroArray(SIZE, b);
+    printDesc("cpu scan, power-of-two (Second run)");
     StreamCompaction::CPU::scan(SIZE, b, a);
     printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
     printArray(SIZE, b, true);
 
     zeroArray(SIZE, c);
-    printDesc("cpu scan, non-power-of-two");
+    printDesc("cpu scan, non-power-of-two (First run)");
+    StreamCompaction::CPU::scan(NPOT, c, a);
+    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
+    printArray(NPOT, b, true);
+    printCmpResult(NPOT, b, c);
+
+    zeroArray(SIZE, c);
+    printDesc("cpu scan, non-power-of-two (Second run)");
     StreamCompaction::CPU::scan(NPOT, c, a);
     printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
     printArray(NPOT, b, true);
