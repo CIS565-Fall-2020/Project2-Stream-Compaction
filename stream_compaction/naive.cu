@@ -13,6 +13,7 @@ namespace StreamCompaction {
         }
 
         // TODO: __global__
+        // This version can handle arrays only as large as can be processed by a single thread block running on one multiprocessor of a GPU.
         __global__ void scan(float* g_odata, float* g_idata, int n) {
             extern __shared__ float temp[]; 
             // allocated on invocation    
@@ -46,24 +47,27 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
             int* dev_idata;
+            int* dev_odata;
+
             cudaMalloc((void**)&dev_idata, n * sizeof(int));
             checkCUDAError("cudaMalloc dev_idata failed!");
 
             cudaMemcpy(dev_idata, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
             checkCUDAError("cudaMemcpy idata to dev_idata failed!");
 
-            // for most gpus there are 1024 threads per block
+            cudaMalloc((void**)&dev_odata, n * sizeof(int));
+            checkCUDAError("cudaMalloc dev_odata failed!");
+
+            // for most gpus there 1024 is the maximum number of threads per block
             int threadsPerBlock = 1024;
             int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock; // ceiling of n / threadsPerBlock
             dim3 blockDim(threadsPerBlock, 0, 0);
             dim3 gridDim(blocksPerGrid, 0, 0);
 
-            
             timer().startGpuTimer();
-            // TODO
-            int k = ilog2ceil(n);
-            // kernScan<<<gridDim, blockDim >>>();
-
+            int depth = ilog2ceil(n);
+            for (int d = 0; d < depth; d++)
+                kernScan<<<gridDim, blockDim>>>(n, odata, idata);
             timer().endGpuTimer();
 
             cudaFree(dev_idata);
