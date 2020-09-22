@@ -11,7 +11,11 @@ namespace StreamCompaction {
             static PerformanceTimer timer;
             return timer;
         }
+
         // TODO: __global__
+        __global__ void kernScan() {
+
+        }
 
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.

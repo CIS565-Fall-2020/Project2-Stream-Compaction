@@ -19,12 +19,12 @@ namespace StreamCompaction {
          * (Optional) For better understanding before starting moving to GPU, you can simulate your GPU scan in this function first.
          */
         void scan(int n, int *odata, const int *idata) {
-            timer().startCpuTimer();
+            // timer().startCpuTimer();
             // TODO
             odata[0] = 0;
             for (int i = 1; i < n; i++)
                 odata[i] = odata[i - 1] + idata[i - 1];
-            timer().endCpuTimer();
+            // timer().endCpuTimer();
         }
 
         /**
@@ -66,13 +66,24 @@ namespace StreamCompaction {
             // step 2: exclusive scan 
             scan(n, odata, mask.data());
 
-            // step 3: scatter
-            for (int i = 0; i < n; i++) {
-
-            }
-
             timer().endCpuTimer();
             return -1;
+
+            // step 3: scatter
+            int m = odata[n - 1];
+            std::vector<int> ovec(m);
+            m = 0;
+            for (int i = 0; i < n; i++) {
+                if (mask[i]) {
+                    ovec[odata[i]] = idata[i];
+                    m++;
+                }
+            }
+
+            odata = ovec.data();
+
+            timer().endCpuTimer();
+            return m;
         }
     }
 }
