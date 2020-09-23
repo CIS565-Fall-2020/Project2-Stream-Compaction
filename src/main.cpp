@@ -13,11 +13,14 @@
 #include <stream_compaction/thrust.h>
 #include "testing_helpers.hpp"
 
-const int SIZE = 1 << 8; // feel free to change the size of array
+const int SIZE = 1 << 4; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
+const int RADIXSIZE = 20;
 int *a = new int[SIZE];
 int *b = new int[SIZE];
 int *c = new int[SIZE];
+int *radix = new int[RADIXSIZE];
+int* radix_sorted = new int[RADIXSIZE];
 
 int main(int argc, char* argv[]) {
     // Scan tests
@@ -147,8 +150,17 @@ int main(int argc, char* argv[]) {
     //printArray(count, c, true);
     printCmpLenResult(count, expectedNPOT, b, c);
 
+    //printDesc("radix sort test");
+    //genArray(RADIXSIZE, radix, 32);
+    //zeroArray(RADIXSIZE, radix_sorted);
+    //StreamCompaction::Efficient::radixSort(RADIXSIZE, 6, radix, radix_sorted);
+    //printArray(RADIXSIZE, radix, true);
+    //printArray(RADIXSIZE, radix_sorted, true);
+
     system("pause"); // stop Win32 console from closing on exit
     delete[] a;
     delete[] b;
     delete[] c;
+    delete[] radix;
+    delete[] radix_sorted;
 }
