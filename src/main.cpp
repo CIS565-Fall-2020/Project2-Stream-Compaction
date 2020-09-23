@@ -34,7 +34,7 @@ void printTime(float *src) {
   std::cout << "    Time record is [";
   std::cout.precision(5);
   for (int i = 0; i < repeatTime; i++) {
-    if (repeatTime > 16 && i == 10) {
+    if (repeatTime > 16 && i == 13) {
           std::cout << "... ";
           i = repeatTime - 2;
           continue;
@@ -83,6 +83,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[1] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(std::chrono Measured)");
     printArray(NPOT, b, true);
     printCmpResult(NPOT, b, c);
@@ -94,6 +95,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::Naive::timer().getGpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[2] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     printCmpResult(SIZE, b, c);
 
@@ -110,6 +112,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::Naive::timer().getGpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[3] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     printCmpResult(NPOT, b, c);
 
@@ -120,6 +123,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[4] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     //printArray(SIZE, c, true);
     printCmpResult(SIZE, b, c);
@@ -131,6 +135,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[5] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     printCmpResult(NPOT, b, c);
 
@@ -141,6 +146,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[6] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     //printArray(SIZE, c, true);
     printCmpResult(SIZE, b, c);
@@ -152,6 +158,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation();
     }    
     printTime(record);
+    res[7] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     //printArray(NPOT, c, true);
     printCmpResult(NPOT, b, c);
@@ -178,6 +185,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[8] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(std::chrono Measured)");
     expectedCount = count;
     printArray(count, b, true);
@@ -190,6 +198,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[9] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(std::chrono Measured)");
     expectedNPOT = count;
     printArray(count, c, true);
@@ -202,6 +211,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[10] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(std::chrono Measured)");
     printArray(count, c, true);
     printCmpLenResult(count, expectedCount, b, c);
@@ -213,6 +223,7 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[11] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     //printArray(count, c, true);
     printCmpLenResult(count, expectedCount, b, c);
@@ -224,9 +235,13 @@ int main(int argc, char* argv[]) {
       record[i] = StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
+    res[12] = getTimeAvg(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     //printArray(count, c, true);
     printCmpLenResult(count, expectedNPOT, b, c);
+
+    std::cout << "Result for n = " << SIZE << " is :" << std::endl;
+    printTime(res);
 
     system("pause"); // stop Win32 console from closing on exit
     delete[] a;
