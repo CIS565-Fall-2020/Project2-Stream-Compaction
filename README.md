@@ -178,9 +178,7 @@ Then we perform Upsweep which is equivalent to parallel reduction. We set the la
 ## Analysis 
 
 * Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with BlockSize on the x axis. 
-  Array Size used: 2^12, time is in seconds. (Lower is better) 
-
-The optimal Blocksize is 128 for my system.
+  Array Size used: 2^12, time is in seconds. (Lower is better). The optimal Blocksize is 128 for my system.
 
 ![Scan Implementations Performance Block Comparison Bar chart](img/graph_blocksizecomp.png)
 
@@ -193,6 +191,7 @@ The optimal Blocksize is 128 for my system.
 
 * Write a brief explanation of the phenomena you see here.
 As we compare the four different approaches(Naive, Work-Efficient, Thrust and CPU), it is evident that the thrust method gives the best results. 
+
 The cpu implementation works very efficiently for smaller sizes of input array but
 as the size gets bigger (2^19), we see that it gives the worst performance of the four. Thrust is very consistent with the different input array sized used. 
 It gives a 0.003-0.004 second output even with an array size of 2^19. The naive implementation gives better results compared to the work efficient implementation for 
@@ -202,6 +201,7 @@ is of the order O(nlog(n)).
   
 * Can you find the performance bottlenecks? Is it memory I/O? Computation? Is
     it different for each implementation?
+
 A performance bottleneck for the GPU implementations in general is the usage of global memory. Global memory read/writes are expensive and take upto 20 cycles per instruction. 
 An optimization that can be used in this case is shared memory. Instead of creating device buffers on global memory, if we store the input data in shared memory (for which read/write take only 2 cycles),
 we can see an improvement in the time taken for work efficient scan. For Naive, the additional bottleneck would be increase in the size of input array. 

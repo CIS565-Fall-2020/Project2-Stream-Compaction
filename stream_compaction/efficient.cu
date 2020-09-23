@@ -462,7 +462,6 @@ namespace StreamCompaction {
 
         }
 
-        //HOST FUNCTION 
         //Work efficient Stream Compaction using shared memory 
         int compactSharedMemory(int n, int* odata, const int* idata)
         {
