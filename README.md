@@ -15,7 +15,8 @@ CUDA Stream Compaction
 
 
 * Tested on personal computer - Microsoft Windows 10 Pro, 
-Processor : Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz, 2601 Mhz, 6 Core(s), 12 Logical Processor(s) 
+Processor : Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz, 2601 Mhz, 6 Core(s), 12 Logical Processor(s)
+ 
 GPU : NVIDIA GeForce RTX 2060
 
 ## OUTPUT 
@@ -156,17 +157,19 @@ Given an array, create a new array of elements that meet a certain criteria. The
   function. Map the input array to an array of 0s and 1s, scan it, and use
   scatter to produce the output.
 
-2) Thrust Implementation for Scan
+2) Thrust Implementation for Scan : 
+
 Performed a scan using thrust::exclusive_scan(first, last, result)
 
-3) Naive GPU Scan 
+3) Naive GPU Scan :
 
 Finding the exclusive scan for the given elements in an array. Each time, we increment the loop by raising the depth by a power of 2. 
 We compute the inclusive scan first by adding the previous output in the array to the previous input element to compute the result for the current element. 
 We then convert this to an exclusive scan by setting the first element in the output array to zero and shifting the rest of the elements to the right. 
 We perform this by using ping-pong buffers. 
 
-4) Work Efficient GPU Scan 
+4) Work Efficient GPU Scan :
+
 We perform a work efficient scan on the gpu based on the binary tree model discussed above. We first pad zeros to the end of an array if it is not the size of power of 2. 
 Then we perform Upsweep which is equivalent to parallel reduction. We set the last element to zero before performing downsweep where we traverse down the tree. 
 
@@ -175,22 +178,33 @@ Then we perform Upsweep which is equivalent to parallel reduction. We set the la
 ## Analysis 
 
 * Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with BlockSize on the x axis. 
-  Array Size used: 2^12
+  Array Size used: 2^12, time is in seconds. (Lower is better) 
+
 The optimal Blocksize is 128 for my system.
 
 ![Scan Implementations Performance Block Comparison Bar chart](img/graph_blocksizecomp.png)
 
 * Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with array size on the x axis. 
-  BlockSize used :128 
+  BlockSize used :128, time is in seconds.
 
 ![Scan Implementations Performance Arr Comparison Line Graph](img/graph_scancomp.png)
 
 ![Scan Implementations Performance Arr Comparison Bar chart](img/bar_scancomp.png)
 
 * Write a brief explanation of the phenomena you see here.
+As we compare the four different approaches(Naive, Work-Efficient, Thrust and CPU), it is evident that the thrust method gives the best results. 
+The cpu implementation works very efficiently for smaller sizes of input array but
+as the size gets bigger (2^19), we see that it gives the worst performance of the four. Thrust is very consistent with the different input array sized used. 
+It gives a 0.003-0.004 second output even with an array size of 2^19. The naive implementation gives better results compared to the work efficient implementation for 
+smaller array sizes but the work efficient is best for bigger array sizes. This is because of the fact that with smaller array sizes, a lot of threads are unused but as input
+size increases, it becomes more efficient. As for Naive, the complexity is increasing since the amount of additions done are doubling with the input size since the time complexity
+is of the order O(nlog(n)).
   
 * Can you find the performance bottlenecks? Is it memory I/O? Computation? Is
     it different for each implementation?
+A performance bottleneck for the GPU implementations in general is the usage of global memory. Global memory read/writes are expensive and take upto 20 cycles per instruction. 
+An optimization that can be used in this case is shared memory. Instead of creating device buffers on global memory, if we store the input data in shared memory (for which read/write take only 2 cycles),
+we can see an improvement in the time taken for work efficient scan. For Naive, the additional bottleneck would be increase in the size of input array. 
 
 ## Output 
 
