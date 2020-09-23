@@ -51,17 +51,24 @@ namespace StreamCompaction {
             g_odata[2*thid+1] = temp[2*thid+1];
         }
 
-        __device__ void kernUpSweep() {
+        __device__ void kernUpSweep(int n, int pN, int* idata, int offset, int d) {
+            int idx = threadIdx.x + (blockIdx.x * blockDim.x);
 
+            if (idx >= pN)
+                return;
+
+            if (idx < d) {
+                int ai = offset * (2 * thid + 1) - 1;
+                int bi = offset * (2 * thid + 2) - 1;
+                temp[bi] += temp[ai];
+            }
         }
 
         __device__ void kernDownSweep() {
 
         }
 
-        __global__ void kernExScan() {
-            int idx = threadIdx.x + (blockIdx.x * blockDim.x);
-
+        __global__ void kernExScan(int n, int pN) {
 
         }
 
@@ -74,6 +81,11 @@ namespace StreamCompaction {
             return;
 
             int* dev_idata;
+
+            int depth = ilog2ceil(n);
+            // remember numbers are read from right to left
+            int pN = 1 << depth;    // n rounded to the next power of 2 = n after padding
+
             cudaMalloc((void**)&dev_idata, n * sizeof(int));
             checkCUDAError("cudaMalloc dev_idata failed!");
 
@@ -89,9 +101,30 @@ namespace StreamCompaction {
 
             timer().startGpuTimer();
             // TODO
-            int k = ilog2ceil(n);
             // kernScan << <gridDim, blockDim >> > ();
+            // upsweep
+            int offset = 1;
+            for (int d = n >> 1; d > 0; d >>= 1) {
+                kernUpSweep<<<gridDim, blockDim>>>();
+                offset *= 2;
 
+
+                kernExScan << <gridDim, blockDim >> > (pN, dev_temp, dev_odata, dev_idata, dev_ping, dev_pong, offset, pingpong);
+                checkCUDAError("kernExScan failed!");
+
+                vector<int> temp_test(pN);
+                cudaMemcpy(temp_test.data(), dev_ping, sizeof(int) * pN, cudaMemcpyDeviceToHost);
+                checkCUDAError("cudaMemcpy dev_temp to temp_test failed!");
+                printArray(pN, temp_test.data(), false);
+
+                pingpong = 1 - pingpong;
+                /*cudaMemcpy(dev_temp, dev_ping, pN * sizeof(int), cudaMemcpyDeviceToDevice);
+                cudaMemcpy(dev_ping, dev_pong, pN * sizeof(int), cudaMemcpyDeviceToDevice);
+                cudaMemcpy(dev_pong, dev_temp, pN * sizeof(int), cudaMemcpyDeviceToDevice);*/
+                int* temp = dev_ping;
+                dev_ping = dev_pong;
+                dev_pong = temp;
+            }
             timer().endGpuTimer();
 
             cudaFree(dev_idata);
