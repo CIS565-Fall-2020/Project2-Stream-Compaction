@@ -3,7 +3,6 @@
 #include "common.h"
 #include "efficient.h"
 
-#define blockSize 128
 
 namespace StreamCompaction {
     namespace Efficient {
@@ -73,12 +72,12 @@ namespace StreamCompaction {
             }
         }
 
-        __global__ void kernScatter(int n, int* idata, int* map, int* scan, int* odata) {
+        __global__ void kernScatter(int n, int* idata, int* scan, int* odata) {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (index >= n) {
                 return;
             }
-            if (map[index] != 0) {
+            if (idata[index] != 0) {
                 odata[scan[index]] = idata[index];
             }
         }
@@ -107,44 +106,23 @@ namespace StreamCompaction {
             cudaMemcpy(dev_data, idata, n * sizeof(int), cudaMemcpyHostToDevice);
 
             timer().startGpuTimer();
-            kernExtendArr<<<fullBlocksPerGrid, threadsPerBlock>>>(num, n, dev_data, dev_extend);
+
+            kernExtendArr << <fullBlocksPerGrid, threadsPerBlock >> > (num, n, dev_data, dev_extend);
 
             for (int d = 0; d <= ceil; d++) {
                 kernUpSweep << <fullBlocksPerGrid, threadsPerBlock >> > (num, d, dev_extend);
-                /*
-                cudaMemcpy(tmp, dev_extend, num * sizeof(int), cudaMemcpyDeviceToHost);
-                printf("_________________level %d___________________\n", d);
-                for (int i = 0; i < num; i++) {
-                    printf("%3d  ", tmp[i]);
-                }
-                printf("\n");
-                */
             }
-            timer().endGpuTimer();
 
             kernSetValue << <fullBlocksPerGrid, threadsPerBlock >> > (num - 1, 0, dev_extend);
-            /*
-            cudaMemcpy(tmp, dev_extend, num * sizeof(int), cudaMemcpyDeviceToHost);
-            printf("SetValue\n");
-            for (int i = 0; i < num; i++) {
-                printf("%3d  ", tmp[i]);
-            }
-            printf("\n");
-            */
 
             for (int d = ceil - 1; d >= 0; d--) {
                 kernDownSweep << <fullBlocksPerGrid, threadsPerBlock >> > (num, d, dev_extend);
-                /*
-                cudaMemcpy(tmp, dev_extend, num * sizeof(int), cudaMemcpyDeviceToHost);
-                printf("_________________level %d___________________\n", d);
-                for (int i = 0; i < num; i++) {
-                    printf("%3d  ", tmp[i]);
-                }
-                printf("\n");
-                */
             }
+            timer().endGpuTimer();
 
             cudaMemcpy(odata, dev_extend, n * sizeof(int), cudaMemcpyDeviceToHost);
+
+
             
             /*
             printf("_________________test____________________\n");
@@ -215,8 +193,7 @@ namespace StreamCompaction {
             kernExtendArr << <fullBlocksPerGrid, threadsPerBlock >> > (num, n, dev_data, dev_extend);
 
             // map
-            kernMap << <fullBlocksPerGrid, threadsPerBlock >> > (num, dev_extend, dev_map);
-            cudaMemcpy(dev_scan, dev_map, num * sizeof(int), cudaMemcpyDeviceToDevice);
+            kernMap << <fullBlocksPerGrid, threadsPerBlock >> > (num, dev_extend, dev_scan);
 
             // scan
             for (int d = 0; d <= ceil; d++) {
@@ -230,12 +207,12 @@ namespace StreamCompaction {
                 kernDownSweep << <fullBlocksPerGrid, threadsPerBlock >> > (num, d, dev_scan);              
             }
             // scatter
-            kernScatter << <fullBlocksPerGrid, threadsPerBlock >> > (num, dev_extend, dev_map, dev_scan, dev_scatter);
+            kernScatter << <fullBlocksPerGrid, threadsPerBlock >> > (num, dev_extend, dev_scan, dev_scatter);
+            timer().endGpuTimer();
 
             cudaMemcpy(odata, dev_scatter, n * sizeof(int), cudaMemcpyDeviceToHost);
             cudaMemcpy(host_scan, dev_scan, num * sizeof(int), cudaMemcpyDeviceToHost);
 
-            timer().endGpuTimer();
 
             cudaFree(dev_extend);
             cudaFree(dev_data);
