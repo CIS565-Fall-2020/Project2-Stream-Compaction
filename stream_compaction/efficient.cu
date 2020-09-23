@@ -3,7 +3,7 @@
 #include "common.h"
 #include "efficient.h"
 #define GLM_FORCE_CUDA
-#define blockSize 1024
+#define blockSize 128
 #define SHARED_MEMORY 1 
 
 namespace StreamCompaction {

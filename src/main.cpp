@@ -11,6 +11,8 @@
 #include <stream_compaction/naive.h>
 #include <stream_compaction/efficient.h>
 #include <stream_compaction/thrust.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 #include "testing_helpers.hpp"
 //#define SHARED_MEMORY 1
 

@@ -27,7 +27,7 @@ GPU : NVIDIA GeForce RTX 2060
 
 ![Stream Compaction output](img/scres.png)
 
-# PROJECT OVERVIEW 
+# ALGORITHM OVERVIEW 
 
 GPU stream compaction in CUDA from scratch. This algorithm is widely used. 
 
@@ -144,7 +144,41 @@ Given an array, create a new array of elements that meet a certain criteria. The
           - if it's non-zero (given by mapped array)
           - then put it at output[index], where index = scanned[i]
 
+# PROJECT OVERVIEW 
+
+1) CPU Scan and Stream compaction Implementation 
+`stream_compaction/cpu.cu`:
+
+* `StreamCompaction::CPU::scan`: compute an exclusive prefix sum. For performance comparison.
+* `StreamCompaction::CPU::compactWithoutScan`: stream compaction without using
+  the `scan` function.
+* `StreamCompaction::CPU::compactWithScan`: stream compaction using the `scan`
+  function. Map the input array to an array of 0s and 1s, scan it, and use
+  scatter to produce the output.
+
+2) Thrust Implementation for Scan
+Performed a scan using thrust::exclusive_scan(first, last, result)
+
+3) Naive GPU Scan 
+
+Finding the exclusive scan for the given elements in an array. Each time, we increment the loop by raising the depth by a power of 2. 
+We compute the inclusive scan first by adding the previous output in the array to the previous input element to compute the result for the current element. 
+We then convert this to an exclusive scan by setting the first element in the output array to zero and shifting the rest of the elements to the right. 
+We perform this by using ping-pong buffers. 
+
+4) Work Efficient GPU Scan 
+We perform a work efficient scan on the gpu based on the binary tree model discussed above. We first pad zeros to the end of an array if it is not the size of power of 2. 
+Then we perform Upsweep which is equivalent to parallel reduction. We set the last element to zero before performing downsweep where we traverse down the tree. 
+
 # PERFORMANCE ANALYSIS 
+
+## Analysis 
+
+* Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with BlockSize on the x axis. 
+  Array Size used: 2^12
+The optimal Blocksize is 128 for my system.
+
+![Scan Implementations Performance Block Comparison Bar chart](img/graph_blocksizecomp.png)
 
 * Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with array size on the x axis. 
   BlockSize used :128 
@@ -153,8 +187,70 @@ Given an array, create a new array of elements that meet a certain criteria. The
 
 ![Scan Implementations Performance Arr Comparison Bar chart](img/bar_scancomp.png)
 
-* Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with BlockSize on the x axis. 
-  Array Size used: 2^12
+* Write a brief explanation of the phenomena you see here.
+  
+* Can you find the performance bottlenecks? Is it memory I/O? Computation? Is
+    it different for each implementation?
 
-![Scan Implementations Performance Block Comparison Bar chart](img/graph_blocksizecomp.png)
+## Output 
+
+```****************
+** SCAN TESTS **
+****************
+    [   6  33  12  21  45   1  15   6  16  34  19  17  46 ...  47   0 ]
+==== cpu scan, power-of-two ====
+   elapsed time: 0.0089ms    (std::chrono Measured)
+    [   0   6  39  51  72 117 118 133 139 155 189 208 225 ... 100600 100647 ]
+==== cpu scan, non-power-of-two ====
+   elapsed time: 0.0087ms    (std::chrono Measured)
+    [   0   6  39  51  72 117 118 133 139 155 189 208 225 ... 100491 100522 ]
+    passed
+==== naive scan, power-of-two ====
+   elapsed time: 0.06496ms    (CUDA Measured)
+    passed
+==== naive scan, non-power-of-two ====
+   elapsed time: 0.063104ms    (CUDA Measured)
+    passed
+==== work-efficient scan, power-of-two ====
+   elapsed time: 0.129024ms    (CUDA Measured)
+    [   0   6  39  51  72 117 118 133 139 155 189 208 225 ... 100600 100647 ]
+    passed
+==== work-efficient scan, non-power-of-two ====
+   elapsed time: 0.129024ms    (CUDA Measured)
+    [   0   6  39  51  72 117 118 133 139 155 189 208 225 ... 100491 100522 ]
+    passed
+==== thrust scan, power-of-two ====
+   elapsed time: 0.003328ms    (CUDA Measured)
+    passed
+==== thrust scan, non-power-of-two ====
+   elapsed time: 0.00336ms    (CUDA Measured)
+    passed
+
+*****************************
+** STREAM COMPACTION TESTS **
+*****************************
+    [   3   0   2   2   2   3   2   3   2   2   1   3   3 ...   0   0 ]
+==== cpu compact without scan, power-of-two ====
+   elapsed time: 0.0197ms    (std::chrono Measured)
+    [   3   2   2   2   3   2   3   2   2   1   3   3   3 ...   2   2 ]
+    passed
+==== cpu compact without scan, non-power-of-two ====
+   elapsed time: 0.0195ms    (std::chrono Measured)
+    [   3   2   2   2   3   2   3   2   2   1   3   3   3 ...   2   2 ]
+    passed
+==== cpu compact with scan ====
+   elapsed time: 0.0535ms    (std::chrono Measured)
+    [   3   2   2   2   3   2   3   2   2   1   3   3   3 ...   2   2 ]
+    passed
+==== work-efficient compact, power-of-two ====
+Work Efficient SC count is 3091
+   elapsed time: 0.374784ms    (CUDA Measured)
+    [   3   2   2   2   3   2   3   2   2   1   3   3   3 ...   2   2 ]
+    passed
+==== work-efficient compact, non-power-of-two ====
+Work Efficient SC count is 3091
+   elapsed time: 0.433312ms    (CUDA Measured)
+    [   3   2   2   2   3   2   3   2   2   1   3   3   3 ...   2   2 ]
+    passed
+``` 
  
