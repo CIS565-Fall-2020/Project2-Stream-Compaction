@@ -45,7 +45,7 @@ One of the reasons why work efficient scan is slower than expected is the fact t
 To resolve this, I changeed the number of threads (iterations times) within the work efficient compact function, from 2^d to 2^(d-i), this will reduce the number of threads that are created without changing any of the results.  
 
 Before:
- - number of threads = 2^d
+ - number of threads = 2^d  
 After:
  - number of threads = 2^(d-i)
 
