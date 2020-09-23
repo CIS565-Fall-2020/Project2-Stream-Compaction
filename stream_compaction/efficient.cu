@@ -49,7 +49,21 @@ namespace StreamCompaction {
             g_odata[2 * thid] = temp[2 * thid];
             // write results to device memory
             g_odata[2*thid+1] = temp[2*thid+1];
-        } 
+        }
+
+        __device__ void kernUpSweep() {
+
+        }
+
+        __device__ void kernDownSweep() {
+
+        }
+
+        __global__ void kernExScan() {
+            int idx = threadIdx.x + (blockIdx.x * blockDim.x);
+
+
+        }
 
 
         /**
