@@ -13,13 +13,14 @@
 #include <stream_compaction/thrust.h>
 #include "testing_helpers.hpp"
 
-const int SIZE = 1 << 18; // feel free to change the size of array
+const int SIZE = 1 << 10; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
 int *a = new int[SIZE];
 int *b = new int[SIZE];
 int *c = new int[SIZE];
 
-const int repeatTime = 5;
+const int repeatTime = 100;
+float *record = new float[repeatTime];
 
 float getTimeAvg(float *src) {
   float t = 0.f;
@@ -29,11 +30,19 @@ float getTimeAvg(float *src) {
   return t / repeatTime;
 }
 
-float printTime(float *src) {
-  std::cout << "Time record is [";
+void printTime(float *src) {
+  std::cout << "    Time record is [";
   std::cout.precision(5);
   for (int i = 0; i < repeatTime; i++) {
-    std::cout << src[i] << ", ";
+    if (repeatTime > 16 && i == 10) {
+          std::cout << "... ";
+          i = repeatTime - 2;
+          continue;
+    }
+    std::cout << src[i];
+    if (i != repeatTime - 1) {
+        std::cout << ", ";
+    }
   }
   std::cout << "]" << std::endl;
 }
@@ -49,20 +58,21 @@ int main(int argc, char* argv[]) {
     genArray(SIZE - 1, a, 50);  // Leave a 0 at the end to test that edge case
     a[SIZE - 1] = 0;
     printArray(SIZE, a, true);
+    float res[13];
 
-    float record[repeatTime];
 
     // initialize b using StreamCompaction::CPU::scan you implement
     // We use b for further comparison. Make sure your StreamCompaction::CPU::scan is correct.
     // At first all cases passed because b && c are all zeroes.
     printDesc("cpu scan, power-of-two");
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < repeatTime; i++) {
       zeroArray(SIZE, b);
       StreamCompaction::CPU::scan(SIZE, b, a);
       record[i] = StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
-    printElapsedTime(getTimeAvg(record), "(std::chrono Measured)");
+    res[0] = getTimeAvg(record);
+    printElapsedTime(res[0], "(std::chrono Measured)");
     printArray(SIZE, b, true);
 
     
@@ -83,7 +93,7 @@ int main(int argc, char* argv[]) {
       StreamCompaction::Naive::scan(SIZE, c, a);
       record[i] = StreamCompaction::Naive::timer().getGpuElapsedTimeForPreviousOperation();
     }
-    printTime(record)
+    printTime(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
     printCmpResult(SIZE, b, c);
 
@@ -97,7 +107,7 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < repeatTime; i++) {
       zeroArray(SIZE, c);
       StreamCompaction::Naive::scan(NPOT, c, a);
-      record[i] = StreamCompaction::Naive::timer().getGpuElapsedTimeForPreviousOperation()
+      record[i] = StreamCompaction::Naive::timer().getGpuElapsedTimeForPreviousOperation();
     }
     printTime(record);
     printElapsedTime(getTimeAvg(record), "(CUDA Measured)");
