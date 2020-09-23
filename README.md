@@ -26,7 +26,7 @@ Contects
 - [Performance Analysis](#Performance-Analysis)
 - [Debug](#Debug)
 - [Questions](#Questions)
-- [Optimization](#Optimization)
+- [Extra Credit](#Extra-Credit)
 - [Reference](#Reference)
 
 Introduction
@@ -189,3 +189,58 @@ The figure shows the performance of thrust::exclusive_scan on Power-of-Two array
 - Bug1: I forget to free the device buffers.
 - Bug2(Main problem): Firstly, I try to avoid module operations when implementing the kernUpSweep and kernDownSweep. Unluckily, it looks like my implementation has problems. So I still use mod operation to determine whether the current thread should do the calculations.
 
+## Extra Credit
+1. Improve performance of work-efficient scan
+
+   The work-efficient scan performs worse than the naive scan. Because more and more threads become lazy after several iterations, we need to choose the proper number of threads at each iteration.
+
+   So we need a mapping from the threadId to the array index. 
+   ```
+      compute the # of number changed at each iteration, stride, start index
+      threadId is from 0 to NumberChangedAtEachIteration
+      array index  = threadId * strideAtEachIteration + startIndexAtEachIteration
+   ```
+   Number of threads needed each time is greatly reduced by doing so. Obviously, the performance is much better than the previous version. But there is still a gap between the optimized method and thrust exslusive scan. I think maybe I can use the optimization method mentioned in CUDA Performance class and use shared memory.
+```
+****************
+** SCAN TESTS **
+****************
+    [  32  37  45  13   5   4  16  28  34   3  47   5  21 ...  45   0 ]
+==== cpu scan, power-of-two ====
+   elapsed time: 65.1664ms    (std::chrono Measured)
+    [   0  32  69 114 127 132 136 152 180 214 217 264 269 ... 410887714 410887759 ]
+==== cpu scan, non-power-of-two ====
+   elapsed time: 24.5645ms    (std::chrono Measured)
+    [   0  32  69 114 127 132 136 152 180 214 217 264 269 ... 410887594 410887640 ]
+    passed
+==== naive scan, power-of-two ====
+   elapsed time: 13.1808ms    (CUDA Measured)
+    passed
+==== naive scan, non-power-of-two ====
+   elapsed time: 13.1909ms    (CUDA Measured)
+    passed
+==== work-efficient scan, power-of-two ====
+   elapsed time: 17.7448ms    (CUDA Measured)
+    passed
+==== work-efficient scan, non-power-of-two ====
+   elapsed time: 17.7584ms    (CUDA Measured)
+    passed
+==== thrust scan, power-of-two ====
+   elapsed time: 0.685632ms    (CUDA Measured)
+    passed
+==== thrust scan, non-power-of-two ====
+   elapsed time: 0.69632ms    (CUDA Measured)
+    passed
+==== work-efficient scan optimized, power-of-two ====
+   elapsed time: 5.94595ms    (CUDA Measured)
+    passed
+==== work-efficient scan optimized, non-power-of-two ====
+   elapsed time: 5.95277ms    (CUDA Measured)
+    passed
+
+```
+
+## Reference
+
+1. [Parallel Algotithms Slides](#https://onedrive.live.com/view.aspx?resid=A6B78147D66DD722!95162&ithint=file%2cpptx&authkey=!AFs_WCO3UbQLC40)
+2. [NVIDIA GPU Gem3](https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch39.html)
