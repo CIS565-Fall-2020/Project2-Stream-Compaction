@@ -3,10 +3,6 @@
 #include "common.h"
 #include "naive.h"
 
-// Block size used for CUDA kernel launch
-#define blockSize 128
-dim3 threadsPerBlock(blockSize);
-
 namespace StreamCompaction {
     namespace Naive {
         using StreamCompaction::Common::PerformanceTimer;
@@ -20,9 +16,11 @@ namespace StreamCompaction {
         {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (index >= n)
+            {
                 return;
+            }
 
-            int offset = 1 << (d - 1);
+            int offset = 1 << d;
             if (index >= offset)
             {
                 odata[index] = idata[index - offset] + idata[index];
@@ -36,9 +34,9 @@ namespace StreamCompaction {
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
-        void scan(int n, int *odata, const int *idata) {
-            timer().startGpuTimer();
-            
+        void scan(int n, int *odata, const int *idata)
+        {
+            dim3 threadsPerBlock(blockSize);
             dim3 blocksPerGrid((n + blockSize - 1) / blockSize);
             int* dev_tempData;
             int* dev_outputData;
@@ -46,17 +44,22 @@ namespace StreamCompaction {
             cudaMalloc((void**)&dev_outputData, n * sizeof(int));
             cudaMemcpy(dev_outputData, idata, n * sizeof(int), cudaMemcpyHostToDevice);
 
-            int depth = ilog2ceil(n) + 1; 
-            for (int d = 1; d <= depth; d++)
+            // ------------------------------------- Performance Measurement ------------------------------------------
+            timer().startGpuTimer();
+            int depth = ilog2ceil(n); 
+            for (int d = 0; d < depth; d++)
             {
                 kernParallelScan<<<blocksPerGrid, threadsPerBlock>>>(n, dev_tempData, dev_outputData, d);
                 std::swap(dev_tempData, dev_outputData);
             }
-            
+            timer().endGpuTimer();
+            // --------------------------------------------------------------------------------------------------------
+
             // Do a right shift when copying data from gpu to cpu, to convert inclusive scan to exclusive scan
             odata[0] = 0;
             cudaMemcpy(odata + 1, dev_outputData, (n - 1) * sizeof(int), cudaMemcpyKind::cudaMemcpyDeviceToHost);
-            timer().endGpuTimer();
+            cudaFree(dev_tempData);
+            cudaFree(dev_outputData);
         }
     }
 }
