@@ -190,8 +190,8 @@ Then we perform Upsweep which is equivalent to parallel reduction. We set the la
 ![Scan Implementations Performance Arr Comparison Bar chart](img/bar_scancomp.png)
 
 * Write a brief explanation of the phenomena you see here.
-As we compare the four different approaches(Naive, Work-Efficient, Thrust and CPU), it is evident that the thrust method gives the best results. 
 
+As we compare the four different approaches(Naive, Work-Efficient, Thrust and CPU), it is evident that the thrust method gives the best results. 
 The cpu implementation works very efficiently for smaller sizes of input array but
 as the size gets bigger (2^19), we see that it gives the worst performance of the four. Thrust is very consistent with the different input array sized used. 
 It gives a 0.003-0.004 second output even with an array size of 2^19. The naive implementation gives better results compared to the work efficient implementation for 
@@ -208,7 +208,8 @@ we can see an improvement in the time taken for work efficient scan. For Naive, 
 
 ## Output 
 
-```****************
+```
+****************
 ** SCAN TESTS **
 ****************
     [   6  33  12  21  45   1  15   6  16  34  19  17  46 ...  47   0 ]
