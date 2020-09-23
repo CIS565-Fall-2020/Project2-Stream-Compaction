@@ -115,7 +115,7 @@ I read the Nsight performance analysis and noticed that there is still memory tr
 
 3. POT vs NPOT
 
-![](img/POT-VS-NPOT.png) 
+![](img/pot-vs-npot.png) 
 
 The figure shows the performance of thrust::exclusive_scan on Power-of-Two array and Non-Power-of-Two array. The result is expected because we need to pad 0 to the NPOT before UpSweep operation, which will cost extra time and memory. I guess the reason why the performance is quite close is that the size of the NPOT array is slightly smaller that the size of POT array. 
 
