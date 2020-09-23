@@ -20,6 +20,11 @@ namespace StreamCompaction {
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+			odata[0] = 0;
+			for (int i = 1; i < n; ++i)
+			{
+				odata[i] = idata[i - 1] + odata[i - 1];
+			}
             timer().endCpuTimer();
         }
 
@@ -31,8 +36,17 @@ namespace StreamCompaction {
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            int oIndex = 0;
+            for(int i = 0; i < n; ++i)
+            {
+                if(idata[i] != 0)
+                {
+                    odata[oIndex] = idata[i];
+                    oIndex ++;
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+            return oIndex;
         }
 
         /**
@@ -41,10 +55,44 @@ namespace StreamCompaction {
          * @returns the number of elements remaining after compaction.
          */
         int compactWithScan(int n, int *odata, const int *idata) {
+            int *mappedArr = new int[n];
+            int *scannedArr = new int[n];
             timer().startCpuTimer();
-            // TODO
+
+            // Compute temporary array containing 1 and 0
+            for(int i = 0; i < n; ++i)
+            {
+                if(idata[i] != 0)
+                {   
+                    mappedArr[i] = 1;
+                }
+                else 
+                {
+                    mappedArr[i] = 0;
+                }
+            }
+
+            // Run exclusive scan on mapped array
+            scannedArr[0] = 0;
+			for (int i = 1; i < n; ++i)
+			{
+				scannedArr[i] = mappedArr[i - 1] + scannedArr[i - 1];
+			}
+
+            // Scatter
+            int oCount = 0;
+            for(int i = 0; i < n; ++i)
+            {
+                if(mappedArr[i] != 0)
+                {  
+                    int index = scannedArr[i];
+                    odata[index] = idata[i];
+                    oCount ++;
+                }
+            }
+            
             timer().endCpuTimer();
-            return -1;
+            return oCount;
         }
     }
 }
