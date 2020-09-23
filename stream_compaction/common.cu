@@ -36,7 +36,7 @@ namespace StreamCompaction {
                 const int *idata, const int *bools, const int *indices) {
             int idx = threadIdx.x + (blockDim.x * blockIdx.x);
             if (idx >= n) return;
-            if (bools[idx]) {
+            if (bools[idx] == 1) {
               odata[indices[idx]] = idata[idx];
             }
         }

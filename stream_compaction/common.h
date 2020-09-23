@@ -11,7 +11,12 @@
 #include <stdexcept>
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#ifdef _DEBUG
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
+#else
+#define checkCUDAError(msg)
+#endif // _DEBUG
+
 
 #define blockSize 128
 

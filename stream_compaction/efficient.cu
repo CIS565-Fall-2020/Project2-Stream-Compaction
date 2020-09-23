@@ -12,15 +12,17 @@ namespace StreamCompaction {
             return timer;
         }
 
-        __global__ void upSweep(int *data, int d) {
+        __global__ void upSweep(int numThreads, int *data, int d) {
           int idx = threadIdx.x + (blockIdx.x * blockDim.x);
+          if (idx >= numThreads) return;
           int interval = 1 << d;
           int mapped = interval * idx + interval - 1;
           data[mapped] += data[mapped - (interval >> 1)];
         }
 
-        __global__ void downSweep(int *data, int d) {
+        __global__ void downSweep(int numThreads, int *data, int d) {
           int idx = threadIdx.x + (blockIdx.x * blockDim.x);
+          if (idx >= numThreads) return;
           int interval = 1 << d;
           int node = interval * idx + interval - 1;
           int left = node - (interval >> 1);
@@ -53,7 +55,7 @@ namespace StreamCompaction {
           for (int d = 1; d <= iterations; d++) {
             int numThreads = 1 << (iterations - d);
             dim3 blocks((numThreads + blockSize - 1) / blockSize);
-            upSweep<<<blocks, blockSize>>>(dev_idata_temp, d);
+            upSweep<<<blocks, blockSize>>>(numThreads, dev_idata_temp, d);
             checkCUDAError("SCAN: upSweep failed");
           }
 
@@ -63,7 +65,7 @@ namespace StreamCompaction {
           for (int d = iterations; d >= 1; d--) {
             int numThreads = 1 << (iterations - d);
             dim3 blocks((numThreads + blockSize - 1) / blockSize);
-            downSweep<<<blocks, blockSize>>>(dev_idata_temp, d);
+            downSweep<<<blocks, blockSize>>>(numThreads, dev_idata_temp, d);
             checkCUDAError("SCAN: downSweep failed");
           }
           
