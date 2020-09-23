@@ -208,6 +208,8 @@ we can see an improvement in the time taken for work efficient scan. For Naive, 
 
 ## Output 
 
+Array Size used : 2^12. Blocksize used 128. 
+
 ```
 ****************
 ** SCAN TESTS **
