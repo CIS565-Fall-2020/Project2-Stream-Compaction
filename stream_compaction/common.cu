@@ -41,8 +41,7 @@ namespace StreamCompaction {
                 return;
             }
 
-            int val = bools[iSelf];
-            if (val != 0) {
+            if (bools[iSelf] != 0) {
                 odata[indices[iSelf]] = idata[iSelf];
             }
         }

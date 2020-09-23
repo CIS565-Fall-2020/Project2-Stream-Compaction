@@ -12,7 +12,8 @@ namespace StreamCompaction {
             return timer;
         }
 
-        constexpr int block_size = 128;
+        constexpr int log2BlockSize = 7;
+        constexpr int block_size = 1 << log2BlockSize;
 
         __global__ void kernScanPass(int n, int diff, int *odata, const int *idata) {
             int iSelf = blockIdx.x * blockDim.x + threadIdx.x;

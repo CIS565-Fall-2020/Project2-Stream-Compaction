@@ -15,36 +15,50 @@ namespace StreamCompaction {
             return timer;
         }
 
-        // block size when processing. cuda block size is half this
-        constexpr int log2BlockSize = 9; // 512
+        // this many elements are processed by one block. cuda block size is half this
+        /*constexpr int log2BlockSize = 10; // 1024*/
+        /*constexpr int log2BlockSize = 9; // 512*/
+        /*constexpr int log2BlockSize = 8; // 256*/
+        constexpr int log2BlockSize = 7; // 128
+        /*constexpr int log2BlockSize = 6; // 64*/
         constexpr int blockSize = 1 << log2BlockSize;
+
+        constexpr int log2BankSize = 5;
+
+        __device__ int conflictFreeIndex(int i) {
+            return i + (i >> log2BankSize);
+        }
 
         __global__ void kernScanPerBlock(int *data, int *lastData) {
             extern __shared__ int buffer[];
             data += blockIdx.x * blockDim.x * 2;
 
+            int offset1 = conflictFreeIndex(threadIdx.x), offset2 = conflictFreeIndex(threadIdx.x + blockDim.x);
+
             // copy data to shared memory
-            buffer[threadIdx.x * 2] = data[threadIdx.x * 2];
-            buffer[threadIdx.x * 2 + 1] = data[threadIdx.x * 2 + 1];
-            __syncthreads();
+            buffer[offset1] = data[threadIdx.x];
+            buffer[offset2] = data[threadIdx.x + blockDim.x];
 
             int lastElem = 0;
             if (lastData && threadIdx.x == blockDim.x - 1) {
-                lastElem = buffer[threadIdx.x * 2 + 1];
+                lastElem = buffer[offset2];
             }
+            __syncthreads();
 
             // upward pass
             for (int halfGap = 1; halfGap < blockDim.x; halfGap <<= 1) {
                 if (threadIdx.x < blockDim.x / halfGap) {
-                    buffer[(threadIdx.x * 2 + 2) * halfGap - 1] += buffer[(threadIdx.x * 2 + 1) * halfGap - 1];
+                    int
+                        id1 = conflictFreeIndex((threadIdx.x * 2 + 1) * halfGap - 1),
+                        id2 = conflictFreeIndex((threadIdx.x * 2 + 2) * halfGap - 1);
+                    buffer[id2] += buffer[id1];
                 }
                 __syncthreads();
             }
 
             if (threadIdx.x == blockDim.x - 1) {
-                int halfIdx = blockDim.x - 1;
-                buffer[blockDim.x * 2 - 1] = buffer[threadIdx.x];
-                buffer[threadIdx.x] = 0;
+                buffer[conflictFreeIndex(blockDim.x * 2 - 1)] = buffer[offset1];
+                buffer[offset1] = 0;
             }
             __syncthreads();
 
@@ -53,6 +67,8 @@ namespace StreamCompaction {
                 if (threadIdx.x < blockDim.x / halfGap) {
                     int prevIdx = (threadIdx.x * 2 + 1) * halfGap - 1;
                     int thisIdx = prevIdx + halfGap;
+                    prevIdx = conflictFreeIndex(prevIdx);
+                    thisIdx = conflictFreeIndex(thisIdx);
                     int sum = buffer[thisIdx] + buffer[prevIdx];
                     buffer[prevIdx] = buffer[thisIdx];
                     buffer[thisIdx] = sum;
@@ -61,10 +77,10 @@ namespace StreamCompaction {
             }
 
             // copy data back
-            data[threadIdx.x * 2] = buffer[threadIdx.x * 2];
-            data[threadIdx.x * 2 + 1] = buffer[threadIdx.x * 2 + 1];
+            data[threadIdx.x] = buffer[offset1];
+            data[threadIdx.x + blockDim.x] = buffer[offset2];
             if (lastData && threadIdx.x == blockDim.x - 1) {
-                lastData[blockIdx.x] = lastElem + buffer[threadIdx.x * 2 + 1];
+                lastData[blockIdx.x] = lastElem + buffer[offset2];
             }
         }
 
@@ -90,13 +106,17 @@ namespace StreamCompaction {
                 int *buffer;
                 cudaMalloc(&buffer, sizeof(int) * indirectSize);
 
-                kernScanPerBlock<<<numBlocks, blockSize / 2, blockSize * sizeof(int)>>>(dev_data, buffer);
+                kernScanPerBlock<<<
+                    numBlocks, blockSize / 2, (blockSize + (blockSize >> log2BankSize)) * sizeof(int)
+                >>>(dev_data, buffer);
                 dev_scan(indirectSize, buffer);
                 kernAddConstantToBlock<<<numBlocks, blockSize>>>(dev_data, buffer);
 
                 cudaFree(buffer);
             } else { // just scan the block
-                kernScanPerBlock<<<1, blockSize / 2, blockSize * sizeof(int)>>>(dev_data, nullptr);
+                kernScanPerBlock<<<
+                    1, blockSize / 2, (blockSize + (blockSize >> log2BankSize)) * sizeof(int)
+                >>>(dev_data, nullptr);
             }
         }
 
@@ -137,10 +157,12 @@ namespace StreamCompaction {
          * @returns      The number of elements remaining after compaction.
          */
         int compact(int n, int *odata, const int *idata) {
-            constexpr int log2BlockSize = 9; // block_size = 512
+            constexpr int log2ScatterBlockSize = 6;
+            constexpr int scatterBlockSize = 1 << log2ScatterBlockSize;
 
             int numBlocks, bufferSize;
             _computeSizes(n, log2BlockSize, &numBlocks, &bufferSize);
+            int numScatterBlocks = (n + scatterBlockSize - 1) >> log2ScatterBlockSize;
 
             int *data, *accum, *out;
             cudaMalloc(&data, sizeof(int) * bufferSize);
@@ -148,21 +170,23 @@ namespace StreamCompaction {
             cudaMalloc(&out, sizeof(int) * bufferSize);
 
             cudaMemcpy(data, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
-            cudaMemset(data + n, 0, sizeof(int) * (bufferSize - n));
 
             timer().startGpuTimer();
             Common::kernMapToBoolean<<<numBlocks, blockSize>>>(n, accum, data);
             dev_scan(bufferSize, accum);
-            Common::kernScatter<<<numBlocks, blockSize>>>(n, out, data, data, accum);
+            Common::kernScatter<<<numScatterBlocks, (1 << log2ScatterBlockSize)>>>(n, out, data, data, accum);
             timer().endGpuTimer();
 
-            int res;
-            cudaMemcpy(odata, out, sizeof(int) * n, cudaMemcpyDeviceToHost);
+            int last = idata[n - 1] != 0 ? 1 : 0, res;
             cudaMemcpy(&res, accum + n - 1, sizeof(int), cudaMemcpyDeviceToHost);
+            res += last;
+            cudaMemcpy(odata, out, sizeof(int) * res, cudaMemcpyDeviceToHost);
             checkCUDAError("efficient compaction");
-            if (idata[n - 1] != 0) {
-                ++res;
-            }
+
+            cudaFree(data);
+            cudaFree(accum);
+            cudaFree(out);
+
             return res;
         }
 
@@ -210,6 +234,7 @@ namespace StreamCompaction {
 
             cudaMemcpy(data1, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
 
+            timer().startGpuTimer();
             for (int i = 0; i < numIntBits; ++i) {
                 kernExtractBit<<<numBlocks, blockSize>>>(n, i, trues, data1);
                 kernNegate<<<numBlocks, blockSize>>>(falses, trues);
@@ -224,6 +249,7 @@ namespace StreamCompaction {
                 kernRadixSortScatter<<<numBlocks, blockSize>>>(n, numFalses, i, data2, data1, trues, falses);
                 std::swap(data1, data2);
             }
+            timer().endGpuTimer();
 
             cudaMemcpy(odata, data1, sizeof(int) * n, cudaMemcpyDeviceToHost);
 
