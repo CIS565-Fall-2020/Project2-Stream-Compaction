@@ -31,6 +31,19 @@ namespace StreamCompaction {
             data[toUpdate] += data[toGet];
         }
 
+        // up sweep efficient
+        __global__ void upSweepEfficient(int n, int d, int* data, int stride, int offset) {
+            int index = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (index >= n || index >= n / stride) {
+                return;
+            }
+
+            int toUpdate = ((index + 1) * stride) - 1;
+            int toGet = toUpdate - offset;
+
+            data[toUpdate] += data[toGet];
+        }
+
         // down sweep
         __global__ void downSweep(int n, int d, int* data, int dist, int distHalf) {
             int index = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -40,6 +53,22 @@ namespace StreamCompaction {
 
             int t_index = index + distHalf - 1;
             int replace_index = index + dist - 1;
+
+            int t = data[t_index];
+            data[t_index] = data[replace_index];
+            data[replace_index] += t;
+        }
+
+        // down sweep efficient
+        __global__ void downSweepEfficient(int n, int d, int* data, int stride, int offset) {
+            int index = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (index >= n || index >= n / stride) {
+                return;
+            }
+
+            int replace_index = n - 1 - (index * stride);
+            int t_index = replace_index - offset;
+            
 
             int t = data[t_index];
             data[t_index] = data[replace_index];
@@ -79,7 +108,7 @@ namespace StreamCompaction {
             cudaMemcpy(data, padded_array.get(), sizeof(int) * power_of_2, cudaMemcpyHostToDevice);
 
             // kernel values
-            int blockSize = 512;
+            int blockSize = 128;
             dim3 fullBlocksPerGrid((power_of_2 + blockSize - 1) / blockSize);
 
             timer().startGpuTimer();
@@ -88,6 +117,9 @@ namespace StreamCompaction {
                 int dist = pow(2, d + 1);
                 int distHalf = pow(2, d);
                 upSweep << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data, dist, distHalf);
+                /*int stride = pow(2, d+1);
+                int offset = pow(2, d);
+                upSweepEfficient << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data, stride, offset);*/
             }
 
 
@@ -99,6 +131,9 @@ namespace StreamCompaction {
                 int dist = pow(2, d + 1);
                 int distHalf = pow(2, d);
                 downSweep << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data, dist, distHalf);
+                /*int stride = pow(2, d + 1);
+                int offset = pow(2, d);
+                downSweepEfficient << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data, stride, offset);*/
             }
             timer().endGpuTimer();
 

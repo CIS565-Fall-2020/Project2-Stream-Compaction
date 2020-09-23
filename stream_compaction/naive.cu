@@ -66,7 +66,7 @@ namespace StreamCompaction {
             int blockSize = 128;
             dim3 fullBlocksPerGrid((power_of_2 + blockSize - 1) / blockSize);
 
-            timer().startGpuTimer();
+            //timer().startGpuTimer();
             for (int d = 1; d <= ilog2ceil(n); d++) {
                 int offset = pow(2, d - 1);
                 iteration << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data_1, data_2, offset);
@@ -79,7 +79,7 @@ namespace StreamCompaction {
             int* temp = data_1;
             data_1 = data_2;
             data_2 = temp;
-            timer().endGpuTimer();
+            //timer().endGpuTimer();
 
             // set the out data to the scanned data
             cudaMemcpy(odata, data_1, sizeof(int) * n, cudaMemcpyDeviceToHost);
