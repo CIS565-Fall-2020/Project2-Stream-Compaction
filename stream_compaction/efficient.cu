@@ -18,26 +18,29 @@ namespace StreamCompaction {
         }
 
         // up sweep
-        __global__ void upSweep(int n, int d, int* data) {
+        __global__ void upSweep(int n, int d, int* data, int dist, int distHalf) {
             int index = threadIdx.x + (blockIdx.x * blockDim.x);
-            int dist = pow(2.f, d + 1);
+            
             if (index >= n || index % dist != 0) {
                 return;
             }
-            int toUpdate = index + pow(2.f, d + 1) - 1;
-            int toGet = index + pow(2.f, d) - 1;
+
+            int toUpdate = index + dist - 1;
+            int toGet = index + distHalf - 1;
+
             data[toUpdate] += data[toGet];
         }
 
         // down sweep
-        __global__ void downSweep(int n, int d, int* data) {
+        __global__ void downSweep(int n, int d, int* data, int dist, int distHalf) {
             int index = threadIdx.x + (blockIdx.x * blockDim.x);
-            int dist = pow(2.f, d + 1);
             if (index >= n || index % dist != 0) {
                 return;
             }
-            int t_index = index + pow(2.f, d) - 1;
-            int replace_index = index + pow(2.f, d + 1) - 1;
+
+            int t_index = index + distHalf - 1;
+            int replace_index = index + dist - 1;
+
             int t = data[t_index];
             data[t_index] = data[replace_index];
             data[replace_index] += t;
@@ -72,24 +75,30 @@ namespace StreamCompaction {
             for (int i = n; i < power_of_2; i++) {
                 padded_array[i] = 0;
             }
+
             cudaMemcpy(data, padded_array.get(), sizeof(int) * power_of_2, cudaMemcpyHostToDevice);
 
             // kernel values
-            int blockSize = 128;
+            int blockSize = 512;
             dim3 fullBlocksPerGrid((power_of_2 + blockSize - 1) / blockSize);
 
             timer().startGpuTimer();
             // up-sweep
             for (int d = 0; d <= ilog2(power_of_2) - 1; d++) {
-                upSweep << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data);
+                int dist = pow(2, d + 1);
+                int distHalf = pow(2, d);
+                upSweep << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data, dist, distHalf);
             }
+
 
             // set the last value to 0
             setZeros << <fullBlocksPerGrid, blockSize >> > (n, power_of_2, data);
 
             // down-sweep
             for (int d = ilog2(power_of_2) - 1; d >= 0; d--) {
-                downSweep << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data);
+                int dist = pow(2, d + 1);
+                int distHalf = pow(2, d);
+                downSweep << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data, dist, distHalf);
             }
             timer().endGpuTimer();
 

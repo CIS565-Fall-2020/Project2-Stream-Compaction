@@ -17,12 +17,11 @@ namespace StreamCompaction {
         }
 
         // one iteration of inclusive scan
-        __global__ void iteration(int n, int d, const int* idata, int* odata) {
+        __global__ void iteration(int n, int d, const int* idata, int* odata, int offset) {
             int index = threadIdx.x + (blockIdx.x * blockDim.x);
             if (index >= n) {
                 return;
             }
-            int offset = pow(2.f, float(d - 1.f));
             if (index >= offset) {
                 odata[index] = idata[index - offset] + idata[index];
             } else {
@@ -69,8 +68,8 @@ namespace StreamCompaction {
 
             timer().startGpuTimer();
             for (int d = 1; d <= ilog2ceil(n); d++) {
-                iteration << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data_1, data_2);
-                //cudaDeviceSynchronize();
+                int offset = pow(2, d - 1);
+                iteration << <fullBlocksPerGrid, blockSize >> > (power_of_2, d, data_1, data_2, offset);
                 int* temp = data_1;
                 data_1 = data_2;
                 data_2 = temp;
