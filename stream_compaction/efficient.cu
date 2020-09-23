@@ -35,6 +35,45 @@ namespace StreamCompaction {
             idata[indexRemap + offset - 1] = idata[indexRemap + offsetDouble - 1];
             idata[indexRemap + offsetDouble - 1] += temp;
         }
+
+        //For radix sort extra credits
+
+        __global__ void kernRadixBarray(int n, int bitNum, const int* idata, int* bArray, int* eArray)
+        {
+            int index = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (index >= n) {
+                return;
+            }
+            bArray[index] = (idata[index] >> bitNum & 1) ? 1 : 0;
+            eArray[index] = (idata[index] >> bitNum & 1) ? 0 : 1;
+        }
+
+        __global__ void kernRadixTarray(int n, const int* fArray, int* tArray, int d)
+        {
+            int index = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (index >= n) {
+                return;
+            }
+            tArray[index] = index - fArray[index] + d;
+        }
+
+        __global__ void kernRadixDarray(int n, const int* bArray, const int* fArray, const int* tArray, int* dArray)
+        {
+            int index = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (index >= n) {
+                return;
+            }
+            dArray[index] = (bArray[index]) ? tArray[index] : dArray[index];
+        }
+
+        __global__ void kernRadixRemap(int n, const int* dArray, int* idata)
+        {
+            int index = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (index >= n) {
+                return;
+            }
+            idata[dArray[index]]= idata[index];
+        }
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
@@ -150,6 +189,67 @@ namespace StreamCompaction {
             free(indexArray);
 
             return count;
+        }
+
+        void radixSort(int n, int bitNum, int* odata, int* idata)
+        {
+            int* dev_idata;
+            int* dev_bArray;
+            int* dev_eArray; 
+            int* dev_fArray; 
+            int* dev_tArray;
+            int* dev_dArray;
+
+            int* fArray;
+            int* eArray;
+            //Malloc
+            cudaMalloc((void**)&dev_idata, n * sizeof(int));
+            cudaMalloc((void**)&dev_bArray, n * sizeof(int));
+            cudaMalloc((void**)&dev_eArray, n * sizeof(int));
+            cudaMalloc((void**)&dev_fArray, n * sizeof(int));
+            cudaMalloc((void**)&dev_tArray, n * sizeof(int));
+            cudaMalloc((void**)&dev_dArray, n * sizeof(int));
+
+            fArray = (int*)malloc(n * sizeof(int));
+            eArray = (int*)malloc(n * sizeof(int));
+
+            dim3 blockSize(BLOCKSIZE);
+            dim3 gridSize((n + BLOCKSIZE - 1) / BLOCKSIZE);
+
+            //Copy data from host to device
+            cudaMemcpy(dev_idata, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+            checkCUDAError("cudaMemcpy dev_idata failed!");
+            int falseCount = 0;
+
+            for (int i = 0; i < bitNum; ++i)
+            {
+                //Get B-array and E-array
+                kernRadixBarray << <gridSize, blockSize>> > (n, i, dev_idata, dev_bArray, dev_eArray);
+                //Get F-array
+                StreamCompaction::Efficient::scan(n, dev_fArray, dev_eArray);
+                cudaMemcpy(fArray, dev_fArray, n * sizeof(int), cudaMemcpyDeviceToHost);
+                cudaMemcpy(eArray, dev_eArray, n * sizeof(int), cudaMemcpyDeviceToHost);
+                falseCount = fArray[n - 1] + eArray[n - 1];
+
+                kernRadixTarray << <gridSize, blockSize>> > (n, dev_fArray, dev_tArray, falseCount);
+                kernRadixDarray << <gridSize, blockSize>> > (n, dev_bArray, dev_fArray, dev_tArray, dev_dArray);
+
+                //Scatter
+                kernRadixRemap << <gridSize, blockSize>> > (n, dev_dArray, dev_idata);
+            }
+
+            cudaMemcpy(odata, dev_idata, n * sizeof(int), cudaMemcpyDeviceToHost);//get the result
+            checkCUDAError("get odata failed!\n");
+
+            cudaFree(dev_idata);
+            cudaFree(dev_bArray);
+            cudaFree(dev_eArray);
+            cudaFree(dev_fArray);
+            cudaFree(dev_tArray);
+            cudaFree(dev_dArray);
+
+            free(fArray);
+            free(eArray);
         }
     }
 }
