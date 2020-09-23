@@ -25,8 +25,6 @@ template<typename T>
 void printCmpResult(int n, T *a, T *b) {
     printf("    %s \n",
             cmpArrays(n, a, b) ? "FAIL VALUE" : "passed");
-
-    printArray(n, b);
 }
 
 template<typename T>

@@ -6,29 +6,19 @@
 #include <iostream>
 using namespace std;
 
-int* dev_tempData;
-int* dev_inputData;
-int* dev_boolData;
-int* dev_idxData;
-int* dev_outputData;
-
 namespace StreamCompaction {
     namespace Efficient {
+        int* dev_tempData;
+        int* dev_inputData;
+        int* dev_boolData;
+        int* dev_idxData;
+        int* dev_outputData;
+
         using StreamCompaction::Common::PerformanceTimer;
         PerformanceTimer& timer()
         {
             static PerformanceTimer timer;
             return timer;
-        }
-
-        // Initialize array in gpu
-        __global__ void kernInitializeArray(int n, int* a, int value) 
-        {
-            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-            if (index < n) 
-            {
-                a[index] = value;
-            }
         }
 
         __global__ void kernUpSweep(int n, int* tdata, int d)
@@ -79,7 +69,7 @@ namespace StreamCompaction {
             dim3 blocksPerGrid((size + blockSize - 1) / blockSize);
 
             cudaMalloc((void**)&dev_tempData, size * sizeof(int));
-            kernInitializeArray << <blocksPerGrid, threadsPerBlock >> > (size, dev_tempData, 0);
+            Common::kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(size, dev_tempData, 0);
             cudaMemcpy(dev_tempData, idata, n * sizeof(int), cudaMemcpyHostToDevice);
 
             // ------------------------------------- Performance Measurement -------------------------------------------
@@ -124,10 +114,10 @@ namespace StreamCompaction {
             cudaMalloc((void**)&dev_boolData, size * sizeof(int));
             cudaMalloc((void**)&dev_idxData, size * sizeof(int));
             cudaMalloc((void**)&dev_outputData, n * sizeof(int));
-            kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(size, dev_inputData, 0);
-            kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(size, dev_boolData, 0);
-            kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(size, dev_idxData, 0);
-            kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(n, dev_outputData, 0);
+            Common::kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(size, dev_inputData, 0);
+            Common::kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(size, dev_boolData, 0);
+            Common::kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(size, dev_idxData, 0);
+            Common::kernInitializeArray<<<blocksPerGrid, threadsPerBlock>>>(n, dev_outputData, 0);
             cudaMemcpy(dev_inputData, idata, n * sizeof(int), cudaMemcpyKind::cudaMemcpyHostToDevice);
             
             // ------------------------------------- Performance Measurement -------------------------------------------

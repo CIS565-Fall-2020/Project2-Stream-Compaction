@@ -34,6 +34,8 @@ inline int ilog2ceil(int x) {
 
 namespace StreamCompaction {
     namespace Common {
+        __global__ void kernInitializeArray(int n, int* a, int value);
+
         __global__ void kernMapToBoolean(int n, int *bools, const int *idata);
 
         __global__ void kernScatter(int n, int *odata,

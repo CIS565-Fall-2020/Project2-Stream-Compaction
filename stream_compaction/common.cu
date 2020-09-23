@@ -17,6 +17,16 @@ void checkCUDAErrorFn(const char *msg, const char *file, int line) {
 namespace StreamCompaction {
     namespace Common {
 
+        // Initialize array in gpu
+        __global__ void kernInitializeArray(int n, int* a, int value)
+        {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index < n)
+            {
+                a[index] = value;
+            }
+        }
+
         /**
          * Maps an array to an array of 0s and 1s for stream compaction. Elements
          * which map to 0 will be removed, and elements which map to 1 will be kept.
