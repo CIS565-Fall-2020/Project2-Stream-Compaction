@@ -1,12 +1,6 @@
 CUDA Stream Compaction
 ======================
 
-anything here that you don't want to share with the world.)
-
-<h1> CUDA Stream Compaction
-
-# ![top](images/top_image.png)
-
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 2**
 * Haorong Yang
 * [LinkedIn](https://www.linkedin.com/in/haorong-henry-yang/)
