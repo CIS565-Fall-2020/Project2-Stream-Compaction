@@ -19,7 +19,14 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+
+            int prefixSum = 0;
+            for (int i = 0; i < n; i++)
+            {
+                odata[i] = prefixSum;
+                prefixSum += idata[i];
+            }
+
             timer().endCpuTimer();
         }
 
@@ -30,9 +37,16 @@ namespace StreamCompaction {
          */
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            
+            int cnt = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (idata[i] != 0)
+                    odata[cnt++] = idata[i];
+            }
+
             timer().endCpuTimer();
-            return -1;
+            return cnt;
         }
 
         /**
@@ -41,10 +55,40 @@ namespace StreamCompaction {
          * @returns the number of elements remaining after compaction.
          */
         int compactWithScan(int n, int *odata, const int *idata) {
+            // Compute temporary array and run exclusive scan on temporary array
+            int prefixSum = 0;
+            int* tdata = new int[n];
+            int* sdata = new int[n];
+
             timer().startCpuTimer();
-            // TODO
+            for (int i = 0; i < n; i++)
+            {
+                tdata[i] = idata[i] != 0 ? 1 : 0;
+                sdata[i] = prefixSum;
+                prefixSum += tdata[i];
+            }
+
+            // Scatter
+            int idx = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (tdata[i])
+                {
+                    idx = sdata[i];
+                    odata[idx] = idata[i];
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+            return idx + 1;
+        }
+
+        void sort(int n, int* odata, const int* idata)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                odata[i] = idata[i];
+            }
+            std::sort(odata, odata + n);
         }
     }
 }

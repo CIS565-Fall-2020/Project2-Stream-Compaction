@@ -14,26 +14,48 @@ void checkCUDAErrorFn(const char *msg, const char *file, int line) {
     exit(EXIT_FAILURE);
 }
 
-
 namespace StreamCompaction {
     namespace Common {
+
+        // Initialize array in gpu
+        __global__ void kernInitializeArray(int n, int* a, int value)
+        {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index < n)
+            {
+                a[index] = value;
+            }
+        }
 
         /**
          * Maps an array to an array of 0s and 1s for stream compaction. Elements
          * which map to 0 will be removed, and elements which map to 1 will be kept.
          */
         __global__ void kernMapToBoolean(int n, int *bools, const int *idata) {
-            // TODO
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index >= n)
+            {
+                return;
+            }
+
+            bools[index] = idata[index] != 0 ? 1 : 0;
         }
 
         /**
          * Performs scatter on an array. That is, for each element in idata,
-         * if bools[idx] == 1, it copies idata[idx] to odata[indices[idx]].
+         * if bools[index] == 1, it copies idata[index] to odata[indices[index]].
          */
-        __global__ void kernScatter(int n, int *odata,
-                const int *idata, const int *bools, const int *indices) {
-            // TODO
-        }
+        __global__ void kernScatter(int n, int* odata, const int* idata, const int* bools, const int* indices) {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index >= n)
+            {
+                return;
+            }
 
+            if (bools[index])
+            {
+                odata[indices[index]] = idata[index];
+            }
+        }
     }
 }
