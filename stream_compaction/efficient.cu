@@ -3,9 +3,6 @@
 #include "common.h"
 #include "efficient.h"
 
-#include <iostream>
-using namespace std;
-
 namespace StreamCompaction {
     namespace Efficient {
         int* dev_tempData;

@@ -4,11 +4,6 @@
 #include "radix.h"
 #include "efficient.h"
 
-#include <iostream>
-using namespace std;
-
-
-
 namespace StreamCompaction {
     namespace Radix {
         int* dev_tempData;
@@ -94,7 +89,7 @@ namespace StreamCompaction {
             int depth = ilog2ceil(n);
             int size = 1 << depth;  // sizes of arrays will are rounded to the next power of two
             int maximum = getMax(n, idata);
-            int bits = getMSB(maximum);
+            int highestBit = getMSB(maximum);
 
             dim3 threadsPerBlock(blockSize);
             dim3 blocksPerGrid((n + blockSize - 1) / blockSize);
@@ -110,7 +105,7 @@ namespace StreamCompaction {
             cudaMemcpy(dev_inputData, idata, n * sizeof(int), cudaMemcpyKind::cudaMemcpyHostToDevice);
 
             // Do radix sort for _bits_ times
-            for (int i = 0, bit = 1; i <= bits; i++, bit <<= 1)
+            for (int i = 0, bit = 1; i < highestBit; i++, bit <<= 1)
             {
                 // Step 1: Compute the bool array and notBool array
                 kernMapTo2Bools<<<blocksPerGrid, threadsPerBlock>>>(n, bit, dev_boolData, dev_notBoolData, dev_inputData);

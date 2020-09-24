@@ -13,7 +13,7 @@
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
 
 // Block size used for CUDA kernel launch
-#define blockSize 128
+#define blockSize 256
 
 /**
  * Check for CUDA errors; print and exit if there was a problem.

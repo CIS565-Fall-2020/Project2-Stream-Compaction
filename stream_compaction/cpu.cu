@@ -55,12 +55,12 @@ namespace StreamCompaction {
          * @returns the number of elements remaining after compaction.
          */
         int compactWithScan(int n, int *odata, const int *idata) {
-            timer().startCpuTimer();
-            
             // Compute temporary array and run exclusive scan on temporary array
             int prefixSum = 0;
             int* tdata = new int[n];
             int* sdata = new int[n];
+
+            timer().startCpuTimer();
             for (int i = 0; i < n; i++)
             {
                 tdata[i] = idata[i] != 0 ? 1 : 0;
