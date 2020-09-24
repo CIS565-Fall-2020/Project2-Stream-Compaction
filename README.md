@@ -178,12 +178,12 @@ Then we perform Upsweep which is equivalent to parallel reduction. We set the la
 ## Analysis 
 
 * Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with BlockSize on the x axis. 
-  Array Size used: 2^12, time is in seconds. (Lower is better). The optimal Blocksize is 128 for my system.
+  Array Size used: 2^12, time is in milliseconds. (Lower is better). The optimal Blocksize is 128 for my system.
 
 ![Scan Implementations Performance Block Comparison Bar chart](img/graph_blocksizecomp.png)
 
 * Performance comparision between GPU Scan implementations (Naive, Work-Efficient, and Thrust) to the serial CPU version of Scan with array size on the x axis. 
-  BlockSize used :128, time is in seconds.
+  BlockSize used :128, time is in milliseconds.
 
 ![Scan Implementations Performance Arr Comparison Line Graph](img/graph_scancomp.png)
 

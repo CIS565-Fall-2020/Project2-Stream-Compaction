@@ -21,8 +21,8 @@ namespace StreamCompaction {
             
             thrust::host_vector<int> dv_in(idata, idata + n);
             thrust::host_vector<int> dv_out(odata, odata + n);
-            thrust::device_vector<int> devin(dv_in);
-            thrust::device_vector<int> devout(dv_out);
+            //thrust::device_vector<int> devin(dv_in);
+            //thrust::device_vector<int> devout(dv_out);
 
 
             timer().startGpuTimer();
@@ -31,9 +31,9 @@ namespace StreamCompaction {
             // example: for device_vectors dv_in and dv_out:
             // thrust::exclusive_scan(dv_in.begin(), dv_in.end(), dv_out.begin());  
 
-            //thrust::exclusive_scan(dv_in.begin(), dv_in.end(), dv_out.begin()); 
+            thrust::exclusive_scan(dv_in.begin(), dv_in.end(), dv_out.begin()); 
             //This is causing an exception 
-            thrust::exclusive_scan(devin.begin(), devin.end(), devout.begin());
+            //thrust::exclusive_scan(devin.begin(), devin.end(), devout.begin());
             
             timer().endGpuTimer();
             
