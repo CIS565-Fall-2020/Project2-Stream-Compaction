@@ -139,7 +139,8 @@ int main(int argc, char* argv[]) {
     printDesc("work-efficient compact, power-of-two");
     count = StreamCompaction::Efficient::compact(SIZE, c, a);
     printElapsedTime(StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
-    printArray(count, c, true);
+    printArray(SIZE, c, true);
+    std::cout << "expected count is " << expectedCount << ", count is " << count << std::endl;
     printCmpLenResult(count, expectedCount, b, c);
 
     zeroArray(SIZE, c);
@@ -147,6 +148,7 @@ int main(int argc, char* argv[]) {
     count = StreamCompaction::Efficient::compact(NPOT, c, a);
     printElapsedTime(StreamCompaction::Efficient::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
     printArray(count, c, true);
+    std::cout << "expected count is " << expectedCount << ", count is " << count << std::endl;
     printCmpLenResult(count, expectedNPOT, b, c);
 
     system("pause"); // stop Win32 console from closing on exit

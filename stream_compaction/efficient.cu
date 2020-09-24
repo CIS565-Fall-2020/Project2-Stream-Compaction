@@ -3,7 +3,7 @@
 #include "common.h"
 #include "efficient.h"
 
-#define blockSize 256
+#define blockSize 128
 
 namespace StreamCompaction {
     namespace Efficient {
@@ -175,10 +175,44 @@ namespace StreamCompaction {
                 __syncthreads();
             }
 
+            /*if (index == n - 1) {
+                out[index] = 0;
+            }
+            __syncthreads();*/
+
+     /*       for (int d = lgn - 1; d >= 0; d--) {
+                int powD = 1;
+                for (int i = 0; i < d; i++) {
+                    powD *= 2;
+                }
+                int powDplus1 = powD * 2;
+                if (index % powDplus1 == 0) {
+                    int t = out[index + powD - 1];
+                    out[index + powD - 1] = out[index + powDplus1 - 1];
+                    out[index + powDplus1 - 1] += t;
+                }
+                __syncthreads();
+            }*/
+
+            //if (isOne) {
+            //    dummy[out[index]] = idata[index];
+            //}
+            
+        }
+
+        __global__ void kernSetLastZero(int n, int* out) {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (index == n - 1) {
                 out[index] = 0;
             }
-            __syncthreads();
+        }
+
+
+        __global__ void kernSweepDown(int n, int lgn, int* out, int* dummy, int* idata) {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index >= n) {
+                return;
+            }
 
             for (int d = lgn - 1; d >= 0; d--) {
                 int powD = 1;
@@ -194,10 +228,10 @@ namespace StreamCompaction {
                 __syncthreads();
             }
 
-            if (isOne) {
+            if (out[index] != out[index + 1]) {
                 dummy[out[index]] = idata[index];
             }
-            
+
         }
 
 
@@ -216,6 +250,8 @@ namespace StreamCompaction {
             for (int i = 0; i < lgn; i++) {
                 pow2Ceil *= 2;
             }
+            //int pow2Ceil = n; // test
+
             // set dimension
             int fullBlocksPerGrid = (pow2Ceil + blockSize - 1) / blockSize; // test 1d grid
 
@@ -248,6 +284,13 @@ namespace StreamCompaction {
             kernSweepCompact << <fullBlocksPerGrid, blockSize >> > (pow2Ceil, lgn, dev_zeroOnes, dev_dummy, dev_scan_odata);
             checkCUDAError("kernSweepCompact failed!");
 
+            // set zeros
+            kernSetLastZero << <fullBlocksPerGrid, blockSize >> > (pow2Ceil, dev_zeroOnes);
+            checkCUDAError("kernSetZero failed!");
+
+            kernSweepDown << <fullBlocksPerGrid, blockSize >> > (pow2Ceil, lgn, dev_zeroOnes, dev_dummy, dev_scan_odata);
+            checkCUDAError("kernSweepCompact failed!");
+
             timer().endGpuTimer();
             // --------------------------------------------------------------------------------------
 
@@ -258,6 +301,11 @@ namespace StreamCompaction {
             int* counter = new int[pow2Ceil];
             cudaMemcpy(counter, dev_zeroOnes, sizeof(int) * pow2Ceil, cudaMemcpyDeviceToHost); // should change for non 2 pows
             int count = 0;
+            for (int i = 0; i < pow2Ceil; i++) {
+                if (counter[i] == 1) {
+                    count++;
+                }
+            }
             count = counter[pow2Ceil - 1];
 
             // cudaMemcpy back 
