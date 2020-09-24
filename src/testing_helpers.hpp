@@ -57,6 +57,15 @@ void genArray(int n, int *a, int maxval) {
     }
 }
 
+void testArray(int n, int* a, int maxval) {
+    srand(time(nullptr));
+    int q = 0;
+    for (int i = 0; i < n; i++) {
+        a[i] = q;
+        q++;
+    }
+}
+
 void printArray(int n, int *a, bool abridged = false) {
     printf("    [ ");
     for (int i = 0; i < n; i++) {
