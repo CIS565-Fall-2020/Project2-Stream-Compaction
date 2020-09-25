@@ -17,12 +17,27 @@ namespace StreamCompaction {
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
+
+        // used help from: https://docs.nvidia.com/cuda/thrust/index.html#:~:text=As%20the%20names%20suggest%2C%20host_vector%20is%20stored%20in,any%20data%20type%29%20that%20can%20be%20resized%20dynamically.
         void scan(int n, int *odata, const int *idata) {
+            
+            // create a host vector
+            thrust::host_vector<int> host_vector(n);
+            // initialize individual elements
+            thrust::copy(idata, idata + n, host_vector.begin());
+
+            // create a device vector from host vector
+            thrust::device_vector<int> dv_in = host_vector;
+            thrust::device_vector<int> dv_out(n);
+
             timer().startGpuTimer();
-            // TODO use `thrust::exclusive_scan`
-            // example: for device_vectors dv_in and dv_out:
-            // thrust::exclusive_scan(dv_in.begin(), dv_in.end(), dv_out.begin());
+
+            thrust::exclusive_scan(dv_in.begin(), dv_in.end(), dv_out.begin());
+
             timer().endGpuTimer();
+
+            thrust::copy(dv_out.begin(), dv_out.end(), odata);
+            
         }
     }
 }
