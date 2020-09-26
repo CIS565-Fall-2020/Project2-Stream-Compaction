@@ -37,7 +37,7 @@ namespace StreamCompaction {
             // TODO
             int ctr = 0;
             for (int i = 0; i < n; i++) {
-                if (idata[i] == 1) {
+                if (idata[i] != 0) {
                     odata[ctr] = idata[i];
                     ctr++;
                 }
@@ -61,12 +61,12 @@ namespace StreamCompaction {
 
             for (int i = 0; i < n; i++) {
                 scan_res[i] = 0;
-                marker[i] = 1;
+                marker[i] = 0;
             }
 
             for (int i = 0; i < n; i++) {
-                if (idata[i] != 1) {
-                    marker[i] = 0;
+                if (idata[i] != 0) {
+                    marker[i] = 1;
                 }
             }
             
