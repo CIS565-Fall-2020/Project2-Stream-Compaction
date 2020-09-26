@@ -20,6 +20,10 @@ namespace StreamCompaction {
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            odata[0] = 0;
+            for (int i = 1; i < n; i++) {
+                odata[i] = odata[i - 1] + idata[i - 1];
+            }
             timer().endCpuTimer();
         }
 
@@ -31,8 +35,15 @@ namespace StreamCompaction {
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            int ctr = 0;
+            for (int i = 0; i < n; i++) {
+                if (idata[i] == 1) {
+                    odata[ctr] = idata[i];
+                    ctr++;
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+            return ctr;
         }
 
         /**
@@ -43,8 +54,39 @@ namespace StreamCompaction {
         int compactWithScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
             // TODO
+            
+            int ctr = 0;
+            int* marker = new int[n];
+            int* scan_res = new int[n];
+
+            for (int i = 0; i < n; i++) {
+                scan_res[i] = 0;
+                marker[i] = 1;
+            }
+
+            for (int i = 0; i < n; i++) {
+                if (idata[i] != 1) {
+                    marker[i] = 0;
+                }
+            }
+            
+            for (int i = 1; i < n; i++) {
+                scan_res[i] = marker[i-1] + scan_res[i-1];
+            }
+
+            for (int i = 0; i < n; i++) {
+                if (marker[i] == 1) {
+                    odata[scan_res[i]] = idata[i];
+                    ctr++;
+                 }
+            }
+            
+            delete[] scan_res;
+            delete[] marker;
+            
             timer().endCpuTimer();
-            return -1;
+            
+            return ctr;
         }
     }
 }
