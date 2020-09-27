@@ -27,8 +27,10 @@ namespace StreamCompaction {
             return;
         }
 
-        __global__ void kernScan2(int n, int pow_d, int pow_d_1, int* in) {
+        __global__ void kernScan2(int n, int d, int* in) {
             int k = (blockIdx.x * blockDim.x) + threadIdx.x;
+            int pow_d_1 = 1 << (d + 1);
+            int pow_d = 1 << d;
             if (k >= n / pow_d_1) {
                 return;
             }
@@ -70,7 +72,7 @@ namespace StreamCompaction {
             for (int d = ilog2ceil(n) - 1; d >= 0; d--) {
                 num = roundup_n / (1 << (d + 1));
                 dim3 blockPerGridLoop2((num + blockSize - 1) / blockSize);
-                kernScan2 << <blockPerGridLoop2, blockSize >> > (roundup_n, 1 << d, 1 << (d + 1), in);
+                kernScan2 << <blockPerGridLoop2, blockSize >> > (roundup_n, d, in);
             }
             timer().endGpuTimer();
             cudaMemcpy(odata, in, sizeof(int) * n, cudaMemcpyDeviceToHost);

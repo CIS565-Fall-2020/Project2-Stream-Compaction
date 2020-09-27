@@ -12,7 +12,7 @@ namespace StreamCompaction {
             static PerformanceTimer timer;
             return timer;
         }
-        // TODO: __global__
+
         __global__ void kernScan(int n, int bar, int *in, int *out) {
             int k = (blockIdx.x * blockDim.x) + threadIdx.x;
             if (k >= n) {
@@ -46,7 +46,6 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
             
-            // TODO
             int* in;
             cudaMalloc((void**)&in, n * sizeof(int));
             int* out;
