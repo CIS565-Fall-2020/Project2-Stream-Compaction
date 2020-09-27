@@ -55,7 +55,7 @@ namespace StreamCompaction {
             cudaMalloc((void**)&in, roundup_n * sizeof(int));
             cudaMemcpy(in, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
 
-            //timer().startGpuTimer();
+            timer().startGpuTimer();
             
             dim3 blockPerGrid((roundup_n + blockSize - 1) / blockSize);
             kernPadZero << <blockPerGrid, roundup_n>>>(n, roundup_n, in);
@@ -72,7 +72,7 @@ namespace StreamCompaction {
                 dim3 blockPerGridLoop2((num + blockSize - 1) / blockSize);
                 kernScan2 << <blockPerGridLoop2, blockSize >> > (roundup_n, 1 << d, 1 << (d + 1), in);
             }
-            //timer().endGpuTimer();
+            timer().endGpuTimer();
             cudaMemcpy(odata, in, sizeof(int) * n, cudaMemcpyDeviceToHost);
             cudaFree(in);
         }
@@ -99,12 +99,12 @@ namespace StreamCompaction {
             cudaMalloc((void**)&bools, n * sizeof(int));
             cudaMemcpy(in, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
             int ctr = 0;
-            timer().startGpuTimer();
+            //timer().startGpuTimer();
             dim3 blockPerGrid((n + blockSize - 1) / blockSize);
             StreamCompaction::Common::kernMapToBoolean << <blockPerGrid ,blockSize>> > (n, bools, in);
             scan(n, scan_res, bools);
             StreamCompaction::Common::kernScatter << <blockPerGrid, blockSize>> > (n, out, in, bools, scan_res);
-            timer().endGpuTimer();
+            //timer().endGpuTimer();
             int* bools_last = new int[0];
             cudaMemcpy(bools_last, bools + n - 1, sizeof(int), cudaMemcpyDeviceToHost);
             int* scan_res_last = new int[0];
